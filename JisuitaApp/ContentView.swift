@@ -35,7 +35,7 @@ struct ContentView: View {
             // -----------------------------------------------
             // タブ3：買い出し
             // -----------------------------------------------
-            ShoppingListView()
+            ShoppingTabView()
                 .tabItem {
                     Image(systemName: "cart.fill")
                     Text("買い出し")
@@ -63,6 +63,44 @@ struct ContentView: View {
                 .tag(4)
         }
         .tint(Color(hex: "1D9E75")) // 選択中のタブの色
+    }
+}
+
+// -------------------------------------------------------
+// ShoppingTabView
+// 買い出しタブ：買い出しリストと食材トラッカーを切り替え
+// -------------------------------------------------------
+struct ShoppingTabView: View {
+    @State private var selectedPage = 0
+
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+
+                // 切り替えピッカー
+                Picker("", selection: $selectedPage) {
+                    Text("買い出し").tag(0)
+                    Text("食材").tag(1)
+                    Text("調味料").tag(2)
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .padding(.vertical, 8)
+
+                Divider()
+
+                // 選択中の画面を表示
+                if selectedPage == 0 {
+                    ShoppingListView()
+                } else if selectedPage == 1 {
+                    IngredientTrackerView()
+                } else {
+                    SeasoningView()
+                }
+            }
+            .navigationTitle("買い出し")
+            .navigationBarTitleDisplayMode(.large)
+        }
     }
 }
 
