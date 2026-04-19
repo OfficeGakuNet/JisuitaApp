@@ -1,24 +1,149 @@
-//
-//  ContentView.swift
-//  JisuitaApp
-//
-//  Created by 株式会社オフィス岳 on 2026/04/10.
-//
-
 import SwiftUI
 
+// -------------------------------------------------------
+// ContentView
+// アプリ全体のタブバーを管理する画面
+// -------------------------------------------------------
 struct ContentView: View {
+
+    // 現在選ばれているタブを管理する
+    @State private var selectedTab = 0
+
     var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
+        TabView(selection: $selectedTab) {
+
+            // -----------------------------------------------
+            // タブ1：ホーム
+            // -----------------------------------------------
+            HomeView()
+                .tabItem {
+                    Image(systemName: "house.fill")
+                    Text("ホーム")
+                }
+                .tag(0)
+
+            // -----------------------------------------------
+            // タブ2：献立
+            // -----------------------------------------------
+            MealPlanView()
+                .tabItem {
+                    Image(systemName: "fork.knife")
+                    Text("献立")
+                }
+                .tag(1)
+
+            // -----------------------------------------------
+            // タブ3：買い出し
+            // -----------------------------------------------
+            ShoppingListView()
+                .tabItem {
+                    Image(systemName: "cart.fill")
+                    Text("買い出し")
+                }
+                .tag(2)
+
+            // -----------------------------------------------
+            // タブ4：記録
+            // -----------------------------------------------
+            RecordView()
+                .tabItem {
+                    Image(systemName: "chart.line.uptrend.xyaxis")
+                    Text("記録")
+                }
+                .tag(3)
+
+            // -----------------------------------------------
+            // タブ5：設定
+            // -----------------------------------------------
+            ProfileSettingView()
+                .tabItem {
+                    Image(systemName: "person.fill")
+                    Text("設定")
+                }
+                .tag(4)
         }
-        .padding()
+        .tint(Color(hex: "1D9E75")) // 選択中のタブの色
     }
 }
 
+// -------------------------------------------------------
+// HomeView
+// ホーム画面（今日の概要）
+// ※ 後で本格的に作る。今はプレースホルダー。
+// -------------------------------------------------------
+struct HomeView: View {
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "house.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(Color(hex: "1D9E75"))
+                Text("ホーム画面")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("今日の体重・カロリー・献立などを\nここに表示します")
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .navigationTitle("今日")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+// -------------------------------------------------------
+// ShoppingView
+// 買い出し画面
+// ※ 後で本格的に作る。今はプレースホルダー。
+// -------------------------------------------------------
+struct ShoppingView: View {
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "cart.fill")
+                    .font(.system(size: 50))
+                    .foregroundColor(Color(hex: "1D9E75"))
+                Text("買い出し画面")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("買い出しリスト・食材トラッカー・\nレシート読み取りをここに表示します")
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .navigationTitle("買い出し")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+// -------------------------------------------------------
+// RecordView
+// 記録画面
+// ※ 後で本格的に作る。今はプレースホルダー。
+// -------------------------------------------------------
+struct RecordView: View {
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 20) {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .font(.system(size: 50))
+                    .foregroundColor(Color(hex: "1D9E75"))
+                Text("記録画面")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                Text("体重グラフ・食事記録・歩数を\nここに表示します")
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            .navigationTitle("記録")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+// -------------------------------------------------------
+// プレビュー
+// -------------------------------------------------------
 #Preview {
     ContentView()
 }
