@@ -18,8 +18,7 @@ struct Meal: Identifiable, Codable {
 // -------------------------------------------------------
 struct MealPlanView: View {
 
-    // ⚠️ ここに自分のAPIキーを入れてください
-    let apiKey = "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"
+    let apiKey = Secrets.claudeAPIKey
 
     let weekdays = ["月", "火", "水", "木", "金", "土", "日"]
     let meals = ["朝", "昼", "夜"]
@@ -230,7 +229,7 @@ struct MealPlanView: View {
             request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
             let body: [String: Any] = [
-                "model": "claude-sonnet-4-20250514",
+                "model": "claude-sonnet-4-6",
                 "max_tokens": 4000,
                 "messages": [
                     ["role": "user", "content": prompt]
@@ -242,9 +241,14 @@ struct MealPlanView: View {
             let (data, _) = try await URLSession.shared.data(for: request)
             let response = try JSONDecoder().decode(ClaudeResponse.self, from: data)
 
-            // テキストを取り出す
-            guard let text = response.content.first?.text else {
-                throw NSError(domain: "ParseError", code: 0)
+            if response.isError {
+                throw NSError(domain: "APIError", code: 0,
+                              userInfo: [NSLocalizedDescriptionKey: response.errorMessage])
+            }
+
+            guard let text = response.content?.first?.text else {
+                throw NSError(domain: "ParseError", code: 0,
+                              userInfo: [NSLocalizedDescriptionKey: "レスポンスの形式が不正です"])
             }
 
             // JSONをパースして献立データに変換する

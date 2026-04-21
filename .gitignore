@@ -1,0 +1,33 @@
+# Xcode
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+DerivedData/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+build/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods
+Pods/
+
+# API Keys (絶対にGitに含めない)
+Secrets.swift
+Secrets.xcconfig
+*.xcconfig
+
+# macOS
+.DS_Store

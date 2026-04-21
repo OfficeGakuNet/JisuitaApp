@@ -23,7 +23,7 @@ struct Ingredient: Identifiable, Codable {
 struct MealDetailView: View {
 
     // ⚠️ 自分のAPIキーに書き換えてください
-    let apiKey = "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"
+    let apiKey = Secrets.claudeAPIKey
 
     let meal: Meal
 
@@ -278,7 +278,11 @@ struct MealDetailView: View {
             let (data, _) = try await URLSession.shared.data(for: request)
             let response = try JSONDecoder().decode(ClaudeResponse.self, from: data)
 
-            guard let text = response.content.first?.text else {
+            if response.isError {
+                throw NSError(domain: "APIError", code: 0,
+                              userInfo: [NSLocalizedDescriptionKey: response.errorMessage])
+            }
+            guard let text = response.content?.first?.text else {
                 throw NSError(domain: "ParseError", code: 0)
             }
 
