@@ -45,7 +45,9 @@ struct ContentView: View {
             // -----------------------------------------------
             // タブ4：記録
             // -----------------------------------------------
-            RecordView()
+            NavigationStack {
+                RecordTopView()
+            }
                 .tabItem {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("記録")
@@ -55,7 +57,7 @@ struct ContentView: View {
             // -----------------------------------------------
             // タブ5：設定
             // -----------------------------------------------
-            ProfileSettingView()
+            SettingsTabView()
                 .tabItem {
                     Image(systemName: "person.fill")
                     Text("設定")
@@ -174,6 +176,42 @@ struct RecordView: View {
                     .foregroundColor(.secondary)
             }
             .navigationTitle("記録")
+            .navigationBarTitleDisplayMode(.large)
+        }
+    }
+}
+
+// -------------------------------------------------------
+// SettingsTabView
+// 設定タブ：各設定画面へのナビゲーションリスト
+// -------------------------------------------------------
+struct SettingsTabView: View {
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("プロフィール") {
+                    NavigationLink(destination: ProfileSettingView()) {
+                        Label("プロフィール設定", systemImage: "person.circle")
+                    }
+                }
+                Section("食事の設定") {
+                    NavigationLink(destination: FixedMenuSettingView()) {
+                        Label("固定メニューの登録", systemImage: "pin.fill")
+                    }
+                    NavigationLink(destination: PreferenceAndBudgetView()) {
+                        Label("好みと予算の設定", systemImage: "slider.horizontal.3")
+                    }
+                    NavigationLink(destination: SeasoningView()) {
+                        Label("調味料の管理", systemImage: "fork.knife.circle")
+                    }
+                }
+                Section("アラート") {
+                    NavigationLink(destination: ExpiryAlertView()) {
+                        Label("賞味期限アラート", systemImage: "exclamationmark.triangle")
+                    }
+                }
+            }
+            .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.large)
         }
     }
