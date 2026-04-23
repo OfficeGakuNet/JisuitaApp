@@ -1,0 +1,28 @@
+name: 👩‍💼 Reviewer — Issue自動作成
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # 毎日 9:00 JST
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: レビュー実行
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/reviewer.py

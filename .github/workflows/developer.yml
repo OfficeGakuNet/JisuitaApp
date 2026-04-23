@@ -1,0 +1,32 @@
+name: 👨‍💻 Developer — Issue自動実装＆PR作成
+
+on:
+  schedule:
+    - cron: '0 1 * * *'  # 毎日 10:00 JST（Reviewerの1時間後）
+  workflow_dispatch:       # 手動実行も可能
+
+jobs:
+  develop:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      contents: write
+
+    steps:
+      - name: リポジトリをチェックアウト
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Python セットアップ
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 実装＆PR作成
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python .github/scripts/developer.py
