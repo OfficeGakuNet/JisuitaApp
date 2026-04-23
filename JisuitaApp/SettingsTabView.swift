@@ -17,7 +17,7 @@ struct SettingsTabView: View {
                 }
 
                 Section("アラート・通知") {
-                    NavigationLink(destination: SkipAlertView()) {
+                    NavigationLink(destination: SkipAlertView(skippedMeal: "月曜夜")) {
                         Label("スキップアラート", systemImage: "bell.badge")
                     }
                     NavigationLink(destination: ExpiryAlertView()) {
