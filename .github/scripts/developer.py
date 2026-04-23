@@ -177,7 +177,7 @@ def main():
     # コミット＆プッシュ
     run("git add JisuitaApp/")
     run(f"git commit -m 'fix: {issue_title} (closes #{issue_number})'")
-    run(f"git push origin {branch}")
+    run(f"git push --force origin {branch}")
 
     # PR作成
     pr_body = f"closes #{issue_number}\n\n## 実装内容\n{result.get('pr_description', '')}"
