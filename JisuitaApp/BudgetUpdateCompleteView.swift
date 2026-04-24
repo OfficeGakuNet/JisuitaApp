@@ -55,21 +55,35 @@ struct BudgetUpdateCompleteView: View {
                         Text("¥\(newSpent.formatted()) / ¥\(monthlyBudget.formatted())")
                             .font(.subheadline)
                             .fontWeight(.medium)
+                            .foregroundColor(.secondary)
                     }
 
-                    ProgressView(value: budgetRatio)
-                        .tint(progressColor)
+                    GeometryReader { geo in
+                        ZStack(alignment: .leading) {
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(Color(.systemGray5))
+                                .frame(height: 8)
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(progressColor)
+                                .frame(width: geo.size.width * budgetRatio, height: 8)
+                        }
+                    }
+                    .frame(height: 8)
 
                     HStack {
-                        Spacer()
-                        Text("残り ¥\(remaining.formatted())")
+                        Text("残り")
                             .font(.caption)
                             .foregroundColor(.secondary)
+                        Spacer()
+                        Text("¥\(remaining.formatted())")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(progressColor)
                     }
                 }
             }
-            .padding()
-            .background(Color(.systemBackground))
+            .padding(16)
+            .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(12)
             .padding(.horizontal, 32)
 
@@ -80,25 +94,20 @@ struct BudgetUpdateCompleteView: View {
                 dismiss()
             }) {
                 Text("ホームへ")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(hex: "1D9E75"))
+                    .font(.headline)
                     .foregroundColor(.white)
-                    .cornerRadius(14)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 16)
+                    .background(Color(hex: "1D9E75"))
+                    .cornerRadius(12)
             }
             .padding(.horizontal, 32)
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground).ignoresSafeArea())
-        .navigationTitle("")
-        .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden(true)
     }
 }
 
 #Preview {
-    NavigationStack {
-        BudgetUpdateCompleteView(addedAmount: 1230)
-    }
+    BudgetUpdateCompleteView(addedAmount: 1280)
 }
