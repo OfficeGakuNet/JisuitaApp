@@ -2,7 +2,7 @@ name: 👩‍💼 Reviewer — Issue自動作成
 
 on:
   schedule:
-    - cron: '0 0 * * *'  # 毎日 9:00 JST
+    - cron: '0 3 * * *'  # 毎日 12:00 JST
   workflow_dispatch:       # 手動実行も可能
 
 jobs:

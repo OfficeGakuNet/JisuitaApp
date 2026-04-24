@@ -2,7 +2,7 @@ name: 👨‍💻 Developer — Issue自動実装＆PR作成
 
 on:
   schedule:
-    - cron: '0 1 * * *'  # 毎日 10:00 JST（Reviewerの1時間後）
+    - cron: '0 4 * * *'  # 毎日 13:00 JST（Reviewerの1時間後）
   workflow_dispatch:       # 手動実行も可能
 
 jobs:
