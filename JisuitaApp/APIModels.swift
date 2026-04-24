@@ -27,8 +27,15 @@ struct ClaudeErrorBody: Codable {
 }
 
 struct MealSlot: Identifiable, Codable {
-    var id = UUID()
-    var day: String      // 曜日（例："月"）
-    var meal: String     // 食事（"朝" / "昼" / "夜"）
-    var isCooking: Bool  // 自炊するか
+    let id: UUID
+    var day: String
+    var meal: String
+    var isCooking: Bool
+
+    init(id: UUID = UUID(), day: String, meal: String, isCooking: Bool) {
+        self.id = id
+        self.day = day
+        self.meal = meal
+        self.isCooking = isCooking
+    }
 }
