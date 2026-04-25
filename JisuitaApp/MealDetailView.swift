@@ -146,6 +146,40 @@ struct MealDetailView: View {
                     }
 
                     // -----------------------------------------------
+                    // 作り方
+                    // -----------------------------------------------
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("作り方（\(recipe.steps.count)ステップ）")
+                            .font(.system(size: 18, weight: .bold))
+                            .padding(.horizontal, 20)
+                            .padding(.top, 24)
+
+                        VStack(spacing: 8) {
+                            ForEach(Array(recipe.steps.enumerated()), id: \.offset) { index, step in
+                                HStack(alignment: .top, spacing: 12) {
+                                    Text("\(index + 1)")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.white)
+                                        .frame(width: 22, height: 22)
+                                        .background(Color(hex: "1D9E75").opacity(0.7))
+                                        .clipShape(Circle())
+                                    Text(step)
+                                        .font(.system(size: 14))
+                                        .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer()
+                                }
+                                .padding(.horizontal, 20)
+                            }
+                        }
+                        .padding(.vertical, 16)
+                        .background(Color(.systemBackground))
+                        .cornerRadius(12)
+                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                        .padding(.horizontal, 20)
+                    }
+
+                    // -----------------------------------------------
                     // ボタンエリア（調理開始 ＋ 食べた）
                     // -----------------------------------------------
                     VStack(spacing: 12) {
@@ -214,6 +248,11 @@ struct MealDetailView: View {
         let prompt = """
         「\(meal.name)」のレシピを1人前で教えてください。
         苦手食材・アレルギー：\(avoidFoods)（使わないでください）
+
+        【作り方の注意】
+        - 「ご飯を炊く」「ご飯をよそう」「お湯を沸かす」など、誰でも知っている自明な準備手順は省いてください
+        - 実際の調理作業（切る・炒める・味付けする・盛り付けるなど）だけを手順にしてください
+        - 1手順は1文で簡潔に書いてください
 
         必ずJSON形式のみで返してください。前置きや説明は不要です。
         {
