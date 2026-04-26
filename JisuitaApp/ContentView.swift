@@ -1,9 +1,5 @@
 import SwiftUI
 
-// -------------------------------------------------------
-// ContentView
-// アプリ全体のタブバーを管理する画面
-// -------------------------------------------------------
 struct ContentView: View {
 
     @State private var selectedTab = 0
@@ -32,9 +28,7 @@ struct ContentView: View {
                 }
                 .tag(2)
 
-            NavigationStack {
-                RecordTopView()
-            }
+            RecordTabView()
                 .tabItem {
                     Image(systemName: "chart.line.uptrend.xyaxis")
                     Text("記録")
@@ -52,10 +46,14 @@ struct ContentView: View {
     }
 }
 
-// -------------------------------------------------------
-// ShoppingTabView
-// 買い出しリストと食材トラッカーを切り替えるタブ画面
-// -------------------------------------------------------
+struct RecordTabView: View {
+    var body: some View {
+        NavigationStack {
+            RecordTopView()
+        }
+    }
+}
+
 struct ShoppingTabView: View {
 
     @State private var selectedPage = 0
@@ -71,8 +69,6 @@ struct ShoppingTabView: View {
                 .padding(.horizontal)
                 .padding(.vertical, 12)
                 .background(Color(.systemGroupedBackground))
-
-                Divider()
 
                 if selectedPage == 0 {
                     ShoppingListView()
