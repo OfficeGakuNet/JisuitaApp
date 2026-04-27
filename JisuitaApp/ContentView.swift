@@ -78,7 +78,7 @@ struct ShoppingTabView: View {
             }
             .navigationTitle(selectedPage == 0 ? "買い出しリスト" : "食材トラッカー")
             .navigationBarTitleDisplayMode(.large)
-            .background(Color(.systemGroupedBackground))
+            .animation(.easeInOut(duration: 0.2), value: selectedPage)
         }
     }
 }
