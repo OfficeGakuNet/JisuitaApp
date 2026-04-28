@@ -55,8 +55,7 @@ struct BudgetUpdateCompleteView: View {
                         Spacer()
                         Text("¥\(newSpent.formatted()) / ¥\(monthlyBudget.formatted())")
                             .font(.subheadline)
-                            .fontWeight(.medium)
-                            .foregroundColor(progressColor)
+                            .foregroundColor(.secondary)
                     }
 
                     GeometryReader { geo in
@@ -67,66 +66,45 @@ struct BudgetUpdateCompleteView: View {
                             RoundedRectangle(cornerRadius: 4)
                                 .fill(progressColor)
                                 .frame(width: geo.size.width * budgetRatio, height: 8)
-                                .animation(.easeInOut, value: budgetRatio)
                         }
                     }
                     .frame(height: 8)
 
                     HStack {
-                        Text("残り予算")
+                        Text("残り")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
                         Text("¥\(remaining.formatted())")
                             .font(.caption)
-                            .foregroundColor(.secondary)
+                            .fontWeight(.semibold)
+                            .foregroundColor(budgetRatio >= 1.0 ? .red : .primary)
                     }
                 }
             }
-            .padding()
+            .padding(16)
             .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(12)
             .padding(.horizontal)
 
             Spacer()
 
-            Button {
-                applyAndDismiss()
-            } label: {
-                Text("ホームに戻る")
-                    .fontWeight(.semibold)
+            Button(action: { dismiss() }) {
+                Text("完了")
+                    .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
-                    .padding()
+                    .padding(.vertical, 16)
                     .background(Color(hex: "1D9E75"))
                     .cornerRadius(12)
             }
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground))
-        .onAppear {
-            resetIfNewMonth()
-        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
+}
 
-    private func currentMonthKey() -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyy-MM"
-        return fmt.string(from: Date())
-    }
-
-    // 月が変わっていれば spentAmount をリセットする
-    private func resetIfNewMonth() {
-        let thisMonth = currentMonthKey()
-        if resetMonth != thisMonth {
-            spentAmount = 0
-            resetMonth = thisMonth
-        }
-    }
-
-    private func applyAndDismiss() {
-        spentAmount = newSpent
-        dismiss()
-    }
+#Preview {
+    BudgetUpdateCompleteView(addedAmount: 3200)
 }
