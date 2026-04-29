@@ -195,7 +195,7 @@ struct ScheduleInputView: View {
 
     // 食事ごとの自炊回数
     func mealCount(_ meal: String) -> Int {
-        slots.filter { $0.meal == meal && $0.isCooking }.count
+        slots.filter { $0.mealTime == meal && $0.isCooking }.count
     }
 
     // 全部選択されているか
