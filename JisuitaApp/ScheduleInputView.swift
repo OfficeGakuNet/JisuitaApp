@@ -30,7 +30,7 @@ struct ScheduleInputView: View {
         var result: [MealSlot] = []
         for day in weekdays {
             for meal in meals {
-                result.append(MealSlot(day: day, meal: meal, isCooking: true))
+                result.append(MealSlot(day: day, mealTime: meal, isCooking: true))
             }
         }
         return result
