@@ -2,18 +2,13 @@ import SwiftUI
 
 struct BudgetUpdateCompleteView: View {
     let addedAmount: Int
-    @AppStorage(AppDefaults.monthlyBudgetKey) private var monthlyBudget = AppDefaults.monthlyBudget
-    @AppStorage(AppDefaults.spentAmountKey) private var spentAmount = AppDefaults.spentAmount
-    @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth = ""
+    @ObservedObject var viewModel: BudgetViewModel
     @Environment(\.dismiss) private var dismiss
 
-    var newSpent: Int { spentAmount + addedAmount }
-    var budgetRatio: Double { min(Double(newSpent) / Double(monthlyBudget), 1.0) }
-    var remaining: Int { max(monthlyBudget - newSpent, 0) }
-
-    var progressColor: Color {
-        budgetRatio > 0.9 ? .red : budgetRatio > 0.7 ? .orange : Color(hex: "1D9E75")
-    }
+    private var newSpent: Int { viewModel.spentAmount }
+    private var budgetRatio: Double { viewModel.budgetRatio }
+    private var remaining: Int { viewModel.remaining }
+    private var progressColor: Color { viewModel.progressColor }
 
     var body: some View {
         VStack(spacing: 32) {
@@ -53,70 +48,65 @@ struct BudgetUpdateCompleteView: View {
                         Text("今月の食費予算")
                             .font(.subheadline)
                         Spacer()
-                        Text("¥\(newSpent.formatted()) / ¥\(monthlyBudget.formatted())")
+                        Text("¥\(viewModel.monthlyBudget.formatted())")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                    }
+
+                    HStack {
+                        Text("累計支出")
+                            .font(.subheadline)
+                        Spacer()
+                        Text("¥\(newSpent.formatted())")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                     }
 
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 6)
-                                .fill(Color(.systemGray5))
-                                .frame(height: 12)
-                            RoundedRectangle(cornerRadius: 6)
+                            Capsule()
+                                .fill(Color(.systemFill))
+                                .frame(height: 10)
+                            Capsule()
                                 .fill(progressColor)
-                                .frame(width: geo.size.width * budgetRatio, height: 12)
-                                .animation(.easeOut(duration: 0.6), value: budgetRatio)
+                                .frame(width: geo.size.width * budgetRatio, height: 10)
                         }
                     }
-                    .frame(height: 12)
+                    .frame(height: 10)
 
                     HStack {
-                        Text("残り予算")
+                        Text("残り")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
                         Text("¥\(remaining.formatted())")
                             .font(.caption)
-                            .foregroundColor(budgetRatio > 0.9 ? .red : .secondary)
+                            .foregroundColor(progressColor)
+                            .fontWeight(.semibold)
                     }
                 }
             }
             .padding(16)
             .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(12)
-            .padding(.horizontal)
+            .padding(.horizontal, 24)
 
             Spacer()
 
             Button {
-                spentAmount = newSpent
                 dismiss()
             } label: {
-                Text("閉じる")
+                Text("完了")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 14)
                     .background(Color(hex: "1D9E75"))
                     .foregroundColor(.white)
-                    .cornerRadius(14)
+                    .cornerRadius(12)
             }
-            .padding(.horizontal)
+            .padding(.horizontal, 24)
             .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground))
-        .onAppear {
-            checkAndResetIfNewMonth()
-        }
-    }
-
-    private func checkAndResetIfNewMonth() {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        let currentMonth = formatter.string(from: Date())
-        if resetMonth != currentMonth {
-            spentAmount = 0
-            resetMonth = currentMonth
-        }
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
     }
 }
