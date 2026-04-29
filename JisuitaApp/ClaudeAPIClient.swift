@@ -7,13 +7,11 @@
 
 import Foundation
 
-actor ClaudeAPIClient {
+class ClaudeAPIClient {
 
     static let shared = ClaudeAPIClient()
 
-    private let apiKey: String = {
-        Bundle.main.object(forInfoDictionaryKey: "CLAUDE_API_KEY") as? String ?? ""
-    }()
+    private let apiKey: String = Secrets.claudeAPIKey
 
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     private let model = "claude-3-5-sonnet-20241022"

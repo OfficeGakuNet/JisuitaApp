@@ -26,6 +26,14 @@ struct ClaudeErrorBody: Codable {
     let message: String
 }
 
+struct Meal: Identifiable, Codable {
+    var id = UUID()
+    var day: String
+    var mealTime: String
+    var name: String
+    var memo: String = ""
+}
+
 struct MealSlot: Identifiable, Codable {
     let id: UUID
     var day: String
