@@ -36,14 +36,16 @@ struct Meal: Identifiable, Codable {
 
 struct MealSlot: Identifiable, Codable {
     let id: UUID
-    var day: String
-    var meal: String
-    var isCooking: Bool
+    var day: String       // 曜日（"月"〜"日"）
+    var mealTime: String  // 食事時間（"朝" / "昼" / "夜"）
+    var name: String      // 料理名（"未設定" or AI提案結果）
+    var isCooking: Bool   // 自炊するか
 
-    init(id: UUID = UUID(), day: String, meal: String, isCooking: Bool) {
+    init(id: UUID = UUID(), day: String, mealTime: String, name: String = "未設定", isCooking: Bool = true) {
         self.id = id
         self.day = day
-        self.meal = meal
+        self.mealTime = mealTime
+        self.name = name
         self.isCooking = isCooking
     }
 }
