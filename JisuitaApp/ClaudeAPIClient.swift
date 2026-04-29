@@ -14,7 +14,7 @@ class ClaudeAPIClient {
     private let apiKey: String = Secrets.claudeAPIKey
 
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    private let model = "claude-3-5-sonnet-20241022"
+    private let model = "claude-sonnet-4-6"
     private let maxTokens = 4096
 
     func send(systemPrompt: String, userMessage: String) async throws -> String {
