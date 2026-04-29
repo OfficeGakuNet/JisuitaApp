@@ -1,284 +1,231 @@
-//
-//  MealPlanView.swift
-//  JisuitaApp
-//
-
 import SwiftUI
 
 struct MealPlanView: View {
 
-    @StateObject private var viewModel = MealPlanViewModel()
-    @AppStorage("userName") private var userName = ""
-    @AppStorage("cookingLevel") private var cookingLevel = "普通"
-    @State private var showGenerateConfirm = false
-    @State private var showSlotEditor = false
-    @State private var selectedSlot: MealSlot? = nil
+    @AppStorage("fixedMenus") private var fixedMenusData: Data = Data()
+    @State private var mealSlots: [MealSlot] = []
+    @State private var isLoading = false
+    @State private var errorMessage: String? = nil
 
-    private let days = MealPlanViewModel.days
-    private let mealTimes = MealPlanViewModel.mealTimes
+    let days = ["月", "火", "水", "木", "金", "土", "日"]
+    let mealTimes = ["朝", "昼", "夜"]
+
+    var fixedMenus: [FixedMenu] {
+        (try? JSONDecoder().decode([FixedMenu].self, from: fixedMenusData)) ?? []
+    }
 
     var body: some View {
         NavigationStack {
-            ZStack {
-                Color(.systemGroupedBackground).ignoresSafeArea()
-
-                ScrollView {
-                    VStack(spacing: 16) {
-                        weekGridCard
-                        generateButton
+            ScrollView {
+                VStack(spacing: 16) {
+                    ForEach(days, id: \.self) { day in
+                        DayCard(
+                            day: day,
+                            slots: slotsFor(day: day),
+                            isFixed: { slot in isFixed(slot) },
+                            onToggle: { slot in toggle(slot) }
+                        )
                     }
-                    .padding(16)
                 }
-
-                if viewModel.isLoading {
-                    loadingOverlay
-                }
+                .padding(16)
             }
+            .background(Color(.systemGroupedBackground))
             .navigationTitle("今週の献立")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: { showGenerateConfirm = true }) {
-                        Image(systemName: "sparkles")
-                            .foregroundColor(Color(hex: "1D9E75"))
+                    if isLoading {
+                        ProgressView().tint(Color(hex: "1D9E75"))
+                    } else {
+                        Button {
+                            Task { await generateMealPlan() }
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "sparkles")
+                                Text("AI提案")
+                            }
+                        }
+                        .tint(Color(hex: "1D9E75"))
                     }
                 }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("リセット") {
-                        viewModel.resetToDefault()
-                    }
-                    .foregroundColor(.secondary)
-                    .font(.subheadline)
-                }
-            }
-            .alert("AI献立を生成", isPresented: $showGenerateConfirm) {
-                Button("生成する") {
-                    Task {
-                        let profile = "名前: \(userName), 料理レベル: \(cookingLevel)"
-                        await viewModel.generateWithClaude(userProfile: profile)
-                    }
-                }
-                Button("キャンセル", role: .cancel) {}
-            } message: {
-                Text("現在の献立をAIで上書きします。よろしいですか？")
             }
             .alert("エラー", isPresented: Binding(
-                get: { viewModel.errorMessage != nil },
-                set: { if !$0 { viewModel.errorMessage = nil } }
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
             )) {
-                Button("OK", role: .cancel) { viewModel.errorMessage = nil }
+                Button("OK", role: .cancel) { errorMessage = nil }
             } message: {
-                Text(viewModel.errorMessage ?? "")
+                Text(errorMessage ?? "")
             }
-            .sheet(item: $selectedSlot) { slot in
-                MealSlotEditSheet(slot: slot) { updated in
-                    viewModel.update(updated)
-                }
-            }
+            .onAppear { buildSlots() }
         }
     }
 
-    private var weekGridCard: some View {
-        VStack(spacing: 0) {
-            gridHeader
-            Divider()
-            ForEach(mealTimes, id: \.self) { mealTime in
-                VStack(spacing: 0) {
-                    gridRow(mealTime: mealTime)
-                    if mealTime != mealTimes.last {
-                        Divider().padding(.leading, 40)
-                    }
-                }
+    // MARK: - スロット構築
+
+    private func buildSlots() {
+        var slots: [MealSlot] = []
+        for day in days {
+            for time in mealTimes {
+                let fixedName = fixedMenus.first {
+                    $0.isEnabled && $0.mealTime == time && $0.days.contains(day)
+                }?.name
+                let existing = mealSlots.first { $0.day == day && $0.mealTime == time }
+                slots.append(MealSlot(
+                    day: day,
+                    mealTime: time,
+                    name: fixedName ?? (existing?.name ?? "未設定"),
+                    isCooking: existing?.isCooking ?? true
+                ))
             }
+        }
+        mealSlots = slots
+    }
+
+    private func slotsFor(day: String) -> [MealSlot] {
+        mealTimes.compactMap { time in
+            mealSlots.first { $0.day == day && $0.mealTime == time }
+        }
+    }
+
+    private func isFixed(_ slot: MealSlot) -> Bool {
+        fixedMenus.contains {
+            $0.isEnabled && $0.mealTime == slot.mealTime && $0.days.contains(slot.day)
+        }
+    }
+
+    private func toggle(_ slot: MealSlot) {
+        guard let idx = mealSlots.firstIndex(where: { $0.id == slot.id }) else { return }
+        mealSlots[idx].isCooking.toggle()
+    }
+
+    // MARK: - AI提案
+
+    private func generateMealPlan() async {
+        let targets = mealSlots.filter { $0.isCooking && !isFixed($0) }
+        guard !targets.isEmpty else {
+            errorMessage = "AI提案する食事がありません。要のスロットを1つ以上設定してください。"
+            return
+        }
+
+        isLoading = true
+        defer { isLoading = false }
+
+        let slotList = targets.map { "\($0.day)曜\($0.mealTime)" }.joined(separator: "、")
+        let userMessage = """
+        以下の食事の献立を提案してください：\(slotList)
+
+        栄養バランスを考え、日本の家庭料理を中心に提案してください。
+        必ずJSON配列のみで返してください（前置き・説明不要）：
+        [{"day":"月","mealTime":"朝","name":"料理名"}, ...]
+        """
+
+        do {
+            let result = try await ClaudeAPIClient.shared.send(
+                systemPrompt: "あなたは栄養バランスを考えた献立を提案する専門家です。JSONのみ返してください。",
+                userMessage: userMessage
+            )
+            applyProposals(result)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func applyProposals(_ text: String) {
+        let clean = text
+            .replacingOccurrences(of: "```json", with: "")
+            .replacingOccurrences(of: "```", with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        struct Proposal: Codable { let day, mealTime, name: String }
+        guard let data = clean.data(using: .utf8),
+              let proposals = try? JSONDecoder().decode([Proposal].self, from: data) else { return }
+
+        for p in proposals {
+            guard let idx = mealSlots.firstIndex(where: { $0.day == p.day && $0.mealTime == p.mealTime }) else { continue }
+            mealSlots[idx].name = p.name
+        }
+    }
+}
+
+// MARK: - DayCard
+
+private struct DayCard: View {
+    let day: String
+    let slots: [MealSlot]
+    let isFixed: (MealSlot) -> Bool
+    let onToggle: (MealSlot) -> Void
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                Text("\(day)曜日")
+                    .font(.headline)
+                    .foregroundColor(dayColor)
+                Spacer()
+            }
+            .padding(.horizontal, 14)
+            .padding(.top, 12)
+            .padding(.bottom, 8)
+
+            ForEach(Array(slots.enumerated()), id: \.element.id) { i, slot in
+                if i > 0 { Divider().padding(.horizontal, 14) }
+                MealRow(slot: slot, fixed: isFixed(slot), onToggle: { onToggle(slot) })
+            }
+            .padding(.bottom, 8)
         }
         .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(14)
+        .cornerRadius(12)
     }
 
-    private var gridHeader: some View {
-        HStack(spacing: 0) {
-            Text("")
-                .frame(width: 36)
-            ForEach(days, id: \.self) { day in
-                Text(day)
-                    .font(.caption)
-                    .fontWeight(.semibold)
-                    .foregroundColor(dayColor(day))
-                    .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 4)
-    }
-
-    private func gridRow(mealTime: String) -> some View {
-        HStack(spacing: 0) {
-            Text(mealTime)
-                .font(.caption2)
-                .fontWeight(.medium)
-                .foregroundColor(.secondary)
-                .frame(width: 36)
-
-            ForEach(days, id: \.self) { day in
-                let slot = viewModel.slot(day: day, mealTime: mealTime)
-                MealSlotCell(slot: slot, day: day, mealTime: mealTime) {
-                    if let s = slot {
-                        selectedSlot = s
-                    } else {
-                        let newSlot = MealSlot(day: day, mealTime: mealTime)
-                        viewModel.update(newSlot)
-                        selectedSlot = newSlot
-                    }
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 4)
-    }
-
-    private var generateButton: some View {
-        Button(action: { showGenerateConfirm = true }) {
-            HStack(spacing: 8) {
-                Image(systemName: "sparkles")
-                Text("AIで献立を自動生成")
-                    .fontWeight(.semibold)
-            }
-            .foregroundColor(.white)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color(hex: "1D9E75"))
-            .cornerRadius(12)
-        }
-    }
-
-    private var loadingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.3).ignoresSafeArea()
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(.circular)
-                    .tint(Color(hex: "1D9E75"))
-                    .scaleEffect(1.4)
-                Text("献立を生成中…")
-                    .font(.subheadline)
-                    .foregroundColor(.white)
-            }
-            .padding(32)
-            .background(.ultraThinMaterial)
-            .cornerRadius(16)
-        }
-    }
-
-    private func dayColor(_ day: String) -> Color {
+    private var dayColor: Color {
         switch day {
         case "土": return .blue
         case "日": return .red
-        default: return .primary
+        default: return Color(hex: "1D9E75")
         }
     }
 }
 
-// MARK: - MealSlotCell
+// MARK: - MealRow
 
-private struct MealSlotCell: View {
-    let slot: MealSlot?
-    let day: String
-    let mealTime: String
-    let onTap: () -> Void
-
-    var body: some View {
-        Button(action: onTap) {
-            VStack(spacing: 2) {
-                if let slot {
-                    if !slot.isCooking {
-                        Image(systemName: "takeoutbag.and.cup.and.straw")
-                            .font(.system(size: 10))
-                            .foregroundColor(.orange)
-                    }
-                    Text(slot.name)
-                        .font(.system(size: 9))
-                        .foregroundColor(slot.name == "未設定" ? .secondary : .primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                } else {
-                    Text("―")
-                        .font(.system(size: 9))
-                        .foregroundColor(.secondary)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 44)
-            .padding(2)
-            .background(
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(cellBackground)
-            )
-        }
-        .buttonStyle(.plain)
-        .padding(.horizontal, 1)
-    }
-
-    private var cellBackground: Color {
-        guard let slot else { return Color(.tertiarySystemGroupedBackground) }
-        if slot.name == "未設定" { return Color(.tertiarySystemGroupedBackground) }
-        return Color(hex: "1D9E75").opacity(0.12)
-    }
-}
-
-// MARK: - MealSlotEditSheet
-
-struct MealSlotEditSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var slot: MealSlot
-    let onSave: (MealSlot) -> Void
-
-    init(slot: MealSlot, onSave: @escaping (MealSlot) -> Void) {
-        _slot = State(initialValue: slot)
-        self.onSave = onSave
-    }
+private struct MealRow: View {
+    let slot: MealSlot
+    let fixed: Bool
+    let onToggle: () -> Void
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    HStack {
-                        Text(slot.day + "曜日")
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Text(slot.mealTime + "食")
-                            .foregroundColor(.secondary)
-                    }
-                } header: {
-                    Text("食事")
-                }
+        HStack(spacing: 12) {
+            Text(slot.mealTime)
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+                .frame(width: 28, alignment: .leading)
 
-                Section {
-                    TextField("料理名", text: $slot.name)
-                } header: {
-                    Text("料理名")
-                }
-
-                Section {
-                    Toggle("自炊する", isOn: $slot.isCooking)
-                        .tint(Color(hex: "1D9E75"))
-                } header: {
-                    Text("調理")
-                }
-            }
-            .navigationTitle("献立を編集")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("保存") {
-                        onSave(slot)
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
+            if fixed {
+                Image(systemName: "pin.fill")
+                    .font(.caption2)
                     .foregroundColor(Color(hex: "1D9E75"))
-                }
+            }
+
+            Text(slot.name)
+                .font(.subheadline)
+                .foregroundColor(fixed ? Color(hex: "1D9E75") : (slot.isCooking ? .primary : .secondary))
+
+            Spacer()
+
+            if !fixed {
+                Toggle("", isOn: Binding(get: { slot.isCooking }, set: { _ in onToggle() }))
+                    .labelsHidden()
+                    .tint(Color(hex: "1D9E75"))
+                    .scaleEffect(0.85)
             }
         }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .opacity(fixed ? 1 : (slot.isCooking ? 1 : 0.45))
     }
+}
+
+#Preview {
+    MealPlanView()
 }
