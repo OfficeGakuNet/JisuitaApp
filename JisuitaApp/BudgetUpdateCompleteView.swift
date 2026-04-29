@@ -2,9 +2,9 @@ import SwiftUI
 
 struct BudgetUpdateCompleteView: View {
     let addedAmount: Int
-    @AppStorage("monthlyBudget") private var monthlyBudget = 30000
-    @AppStorage("spentAmount") private var spentAmount = 0
-    @AppStorage("spentAmountResetMonth") private var resetMonth = ""
+    @AppStorage(AppDefaults.monthlyBudgetKey) private var monthlyBudget = AppDefaults.monthlyBudget
+    @AppStorage(AppDefaults.spentAmountKey) private var spentAmount = AppDefaults.spentAmount
+    @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth = ""
     @Environment(\.dismiss) private var dismiss
 
     var newSpent: Int { spentAmount + addedAmount }
@@ -55,30 +55,30 @@ struct BudgetUpdateCompleteView: View {
                         Spacer()
                         Text("¥\(newSpent.formatted()) / ¥\(monthlyBudget.formatted())")
                             .font(.subheadline)
-                            .foregroundColor(.secondary)
+                            .fontWeight(.semibold)
                     }
 
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle(cornerRadius: 6)
                                 .fill(Color(.systemGray5))
-                                .frame(height: 8)
-                            RoundedRectangle(cornerRadius: 4)
+                                .frame(height: 12)
+                            RoundedRectangle(cornerRadius: 6)
                                 .fill(progressColor)
-                                .frame(width: geo.size.width * budgetRatio, height: 8)
+                                .frame(width: geo.size.width * budgetRatio, height: 12)
+                                .animation(.easeOut(duration: 0.6), value: budgetRatio)
                         }
                     }
-                    .frame(height: 8)
+                    .frame(height: 12)
 
                     HStack {
-                        Text("残り")
+                        Text("残り予算")
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Spacer()
                         Text("¥\(remaining.formatted())")
                             .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(budgetRatio >= 1.0 ? .red : .primary)
+                            .foregroundColor(budgetRatio > 0.9 ? .red : .secondary)
                     }
                 }
             }
@@ -89,22 +89,34 @@ struct BudgetUpdateCompleteView: View {
 
             Spacer()
 
-            Button(action: { dismiss() }) {
-                Text("完了")
-                    .font(.headline)
-                    .foregroundColor(.white)
+            Button {
+                spentAmount = newSpent
+                dismiss()
+            } label: {
+                Text("閉じる")
+                    .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 16)
                     .background(Color(hex: "1D9E75"))
-                    .cornerRadius(12)
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
             }
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Color(.systemGroupedBackground))
+        .onAppear {
+            checkAndResetIfNewMonth()
+        }
     }
-}
 
-#Preview {
-    BudgetUpdateCompleteView(addedAmount: 3200)
+    private func checkAndResetIfNewMonth() {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM"
+        let currentMonth = formatter.string(from: Date())
+        if resetMonth != currentMonth {
+            spentAmount = 0
+            resetMonth = currentMonth
+        }
+    }
 }
