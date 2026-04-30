@@ -6,114 +6,83 @@
 import Foundation
 import Combine
 
-private let mealSlotsKey = "mealSlots"
-
 final class MealPlanViewModel: ObservableObject {
 
-    static let days = ["月", "火", "水", "木", "金", "土", "日"]
-    static let mealTimes = ["朝", "昼", "夜"]
+    static let shared = MealPlanViewModel()
 
     @Published var slots: [MealSlot] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String? = nil
 
-    init() {
+    private let storageKey = "mealSlots"
+    private let days = ["月", "火", "水", "木", "金", "土", "日"]
+    private let mealTimes = ["朝", "昼", "夜"]
+
+    private init() {
         load()
-        if slots.isEmpty { resetToDefault() }
+        if slots.isEmpty {
+            slots = defaultSlots()
+            save()
+        }
     }
 
     func slot(day: String, mealTime: String) -> MealSlot? {
         slots.first { $0.day == day && $0.mealTime == mealTime }
     }
 
-    func update(_ slot: MealSlot) {
-        if let idx = slots.firstIndex(where: { $0.id == slot.id }) {
-            slots[idx] = slot
-        } else {
-            slots.append(slot)
+    func todaySlots() -> [MealSlot] {
+        let weekday = todayWeekdayString()
+        return mealTimes.compactMap { time in
+            slot(day: weekday, mealTime: time)
         }
+    }
+
+    func update(_ updated: MealSlot) {
+        guard let index = slots.firstIndex(where: { $0.id == updated.id }) else { return }
+        slots[index] = updated
         save()
     }
 
-    func generateWithClaude(userProfile: String) async {
-        await MainActor.run { isLoading = true; errorMessage = nil }
-
-        let systemPrompt = """
-        あなたは栄養バランスを考慮した献立作成アシスタントです。
-        以下のJSON形式のみで1週間分（月〜日）×3食（朝・昼・夜）の献立を返してください。
-        他のテキストは一切含めないでください。
-        フォーマット例:
-        [
-          {"day":"月","mealTime":"朝","name":"料理名","isCooking":true},
-          ...
-        ]
-        """
-        let userMessage = "ユーザー情報: \(userProfile)\n1週間分の献立を提案してください。"
-
-        do {
-            let raw = try await ClaudeAPIClient.shared.send(systemPrompt: systemPrompt, userMessage: userMessage)
-            let parsed = try parseMealSlots(from: raw)
-            await MainActor.run {
-                self.mergeSlots(parsed)
-                self.save()
-                self.isLoading = false
-            }
-        } catch {
-            await MainActor.run {
-                self.errorMessage = error.localizedDescription
-                self.isLoading = false
-            }
-        }
+    func updateName(day: String, mealTime: String, name: String) {
+        guard let index = slots.firstIndex(where: { $0.day == day && $0.mealTime == mealTime }) else { return }
+        slots[index].name = name
+        save()
     }
 
-    private func parseMealSlots(from text: String) throws -> [MealSlot] {
-        let jsonString: String
-        if let start = text.range(of: "["), let end = text.range(of: "]", options: .backwards) {
-            jsonString = String(text[start.lowerBound...end.upperBound])
-        } else {
-            jsonString = text
-        }
-        guard let data = jsonString.data(using: .utf8) else { throw APIError.decodeError }
-        let decoded = try JSONDecoder().decode([MealSlotDTO].self, from: data)
-        return decoded.map { MealSlot(day: $0.day, mealTime: $0.mealTime, name: $0.name, isCooking: $0.isCooking) }
-    }
-
-    private func mergeSlots(_ newSlots: [MealSlot]) {
-        for new in newSlots {
-            if let idx = slots.firstIndex(where: { $0.day == new.day && $0.mealTime == new.mealTime }) {
-                slots[idx] = new
-            } else {
-                slots.append(new)
+    func applyAISuggestions(_ suggestions: [(day: String, mealTime: String, name: String)]) {
+        for suggestion in suggestions {
+            if let index = slots.firstIndex(where: { $0.day == suggestion.day && $0.mealTime == suggestion.mealTime }) {
+                slots[index].name = suggestion.name
             }
         }
-    }
-
-    func resetToDefault() {
-        var result: [MealSlot] = []
-        for day in Self.days {
-            for mealTime in Self.mealTimes {
-                result.append(MealSlot(day: day, mealTime: mealTime, name: "未設定", isCooking: true))
-            }
-        }
-        slots = result
         save()
     }
 
     private func save() {
         guard let data = try? JSONEncoder().encode(slots) else { return }
-        UserDefaults.standard.set(data, forKey: mealSlotsKey)
+        UserDefaults.standard.set(data, forKey: storageKey)
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: mealSlotsKey),
-              let decoded = try? JSONDecoder().decode([MealSlot].self, from: data) else { return }
+        guard
+            let data = UserDefaults.standard.data(forKey: storageKey),
+            let decoded = try? JSONDecoder().decode([MealSlot].self, from: data)
+        else { return }
         slots = decoded
     }
-}
 
-private struct MealSlotDTO: Codable {
-    let day: String
-    let mealTime: String
-    let name: String
-    let isCooking: Bool
+    private func defaultSlots() -> [MealSlot] {
+        days.flatMap { day in
+            mealTimes.map { time in
+                MealSlot(day: day, mealTime: time)
+            }
+        }
+    }
+
+    private func todayWeekdayString() -> String {
+        let fmt = DateFormatter()
+        fmt.locale = Locale(identifier: "ja_JP")
+        fmt.dateFormat = "E"
+        let raw = fmt.string(from: Date())
+        let map = ["月": "月", "火": "火", "水": "水", "木": "木", "金": "金", "土": "土", "日": "日"]
+        return map[raw] ?? raw
+    }
 }

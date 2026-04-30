@@ -5,10 +5,7 @@ struct HomeView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
-                    // 今日の食事カード
                     TodayMealCard()
-
-                    // クイックアクション
                     QuickActionsGrid()
                 }
                 .padding(16)
@@ -21,7 +18,8 @@ struct HomeView: View {
 }
 
 private struct TodayMealCard: View {
-    let meals = ["朝: ご飯・味噌汁", "昼: 未設定", "夜: 未設定"]
+
+    @ObservedObject private var viewModel = MealPlanViewModel.shared
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -34,10 +32,24 @@ private struct TodayMealCard: View {
                     .foregroundColor(.secondary)
             }
 
-            ForEach(meals, id: \.self) { meal in
-                Text(meal)
+            let todaySlots = viewModel.todaySlots()
+            if todaySlots.isEmpty {
+                Text("献立が登録されていません")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+            } else {
+                ForEach(todaySlots) { slot in
+                    HStack(spacing: 6) {
+                        Text(slot.mealTime + ":")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+                            .foregroundColor(Color(hex: "1D9E75"))
+                            .frame(width: 28, alignment: .leading)
+                        Text(slot.name)
+                            .font(.subheadline)
+                            .foregroundColor(slot.name == "未設定" ? .secondary : .primary)
+                    }
+                }
             }
         }
         .padding(16)
@@ -71,16 +83,13 @@ private struct QuickActionsGrid: View {
                     Text(label)
                         .font(.caption)
                         .fontWeight(.medium)
+                        .foregroundColor(.primary)
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 20)
+                .padding(.vertical, 16)
                 .background(Color(.secondarySystemGroupedBackground))
                 .cornerRadius(12)
             }
         }
     }
-}
-
-#Preview {
-    HomeView()
 }

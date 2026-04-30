@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
 
     @State private var selectedTab = 0
+    @StateObject private var mealPlanViewModel = MealPlanViewModel.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -43,6 +44,7 @@ struct ContentView: View {
                 .tag(4)
         }
         .tint(Color(hex: "1D9E75"))
+        .environmentObject(mealPlanViewModel)
     }
 }
 
@@ -78,7 +80,6 @@ struct ShoppingTabView: View {
             }
             .navigationTitle(selectedPage == 0 ? "買い出しリスト" : "食材トラッカー")
             .navigationBarTitleDisplayMode(.large)
-            .animation(.easeInOut(duration: 0.2), value: selectedPage)
         }
     }
 }
