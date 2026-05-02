@@ -4,6 +4,7 @@ struct ContentView: View {
 
     @State private var selectedTab = 0
     @StateObject private var mealPlanViewModel = MealPlanViewModel.shared
+    @StateObject private var userSettings = UserSettings.shared
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -45,6 +46,7 @@ struct ContentView: View {
         }
         .tint(Color(hex: "1D9E75"))
         .environmentObject(mealPlanViewModel)
+        .environmentObject(userSettings)
     }
 }
 
@@ -78,7 +80,7 @@ struct ShoppingTabView: View {
                     IngredientTrackerView()
                 }
             }
-            .navigationTitle(selectedPage == 0 ? "買い出しリスト" : "食材トラッカー")
+            .navigationTitle("買い出し")
             .navigationBarTitleDisplayMode(.large)
         }
     }
