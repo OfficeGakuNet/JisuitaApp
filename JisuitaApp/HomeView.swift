@@ -1,11 +1,20 @@
 import SwiftUI
 
 struct HomeView: View {
-    @StateObject private var budgetViewModel = BudgetViewModel()
+    @AppStorage("monthlyBudget") private var monthlyBudget: Int = 30000
+    @AppStorage("spentAmount") private var spentAmount: Int = 0
     @State private var todayMeals: [String] = []
     @State private var isLoadingMeals = false
-    @State private var mealError: String? = nil
     @State private var showExpiryAlert = false
+
+    private var remaining: Int { max(monthlyBudget - spentAmount, 0) }
+    private var budgetRatio: Double {
+        guard monthlyBudget > 0 else { return 0 }
+        return min(Double(spentAmount) / Double(monthlyBudget), 1.0)
+    }
+    private var progressColor: Color {
+        budgetRatio > 0.9 ? .red : budgetRatio > 0.7 ? .orange : Color(hex: "1D9E75")
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,17 +39,11 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $showExpiryAlert) {
-                NavigationStack {
-                    ExpiryAlertView()
-                }
+                NavigationStack { ExpiryAlertView() }
             }
-            .task {
-                await loadTodayMeals()
-            }
+            .task { await loadTodayMeals() }
         }
     }
-
-    // MARK: - 今月の食費カード
 
     private var budgetCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -48,17 +51,12 @@ struct HomeView: View {
                 Text("今月の食費")
                     .font(.headline)
                 Spacer()
-                NavigationLink(destination: BudgetSettingView()) {
-                    Text("予算設定")
-                        .font(.subheadline)
-                        .tint(Color(hex: "1D9E75"))
-                }
             }
 
             HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("¥\(budgetViewModel.remaining.formatted())")
+                Text("¥\(remaining.formatted())")
                     .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(budgetViewModel.progressColor)
+                    .foregroundColor(progressColor)
                 Text("残り")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
@@ -70,28 +68,24 @@ struct HomeView: View {
                         .fill(Color(.systemFill))
                         .frame(height: 8)
                     RoundedRectangle(cornerRadius: 4)
-                        .fill(budgetViewModel.progressColor)
-                        .frame(width: geo.size.width * budgetViewModel.budgetRatio, height: 8)
+                        .fill(progressColor)
+                        .frame(width: geo.size.width * budgetRatio, height: 8)
                 }
             }
             .frame(height: 8)
 
             HStack {
-                Text("支出: ¥\(budgetViewModel.spentAmount.formatted())")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("支出: ¥\(spentAmount.formatted())")
+                    .font(.caption).foregroundColor(.secondary)
                 Spacer()
-                Text("予算: ¥\(budgetViewModel.monthlyBudget.formatted())")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                Text("予算: ¥\(monthlyBudget.formatted())")
+                    .font(.caption).foregroundColor(.secondary)
             }
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
     }
-
-    // MARK: - 今日のおすすめ献立カード
 
     private var todayMealCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -111,36 +105,27 @@ struct HomeView: View {
                 }
             }
 
-            if let error = mealError {
-                Text(error)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            } else if isLoadingMeals {
+            if isLoadingMeals {
                 HStack {
                     Spacer()
                     VStack(spacing: 8) {
                         ProgressView()
-                        Text("AIが献立を考えています…")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Text("AIが考えています…")
+                            .font(.caption).foregroundColor(.secondary)
                     }
                     Spacer()
                 }
                 .padding()
             } else {
                 let labels = ["朝", "昼", "夜"]
-                ForEach(Array(todayMeals.enumerated()), id: \.offset) { index, meal in
+                ForEach(Array(todayMeals.enumerated()), id: \.offset) { i, meal in
                     HStack(spacing: 12) {
-                        Text(index < labels.count ? labels[index] : "")
-                            .font(.caption)
-                            .fontWeight(.semibold)
+                        Text(i < labels.count ? labels[i] : "")
+                            .font(.caption).fontWeight(.semibold)
                             .foregroundColor(.white)
-                            .frame(width: 24)
-                            .padding(.vertical, 2)
-                            .background(Color(hex: "1D9E75"))
-                            .cornerRadius(4)
-                        Text(meal)
-                            .font(.subheadline)
+                            .frame(width: 24).padding(.vertical, 2)
+                            .background(Color(hex: "1D9E75")).cornerRadius(4)
+                        Text(meal).font(.subheadline)
                     }
                 }
             }
@@ -150,43 +135,33 @@ struct HomeView: View {
         .cornerRadius(12)
     }
 
-    // MARK: - AI献立取得
-
     private func loadTodayMeals() async {
         isLoadingMeals = true
-        mealError = nil
         defer { isLoadingMeals = false }
-
         let avoidFoods = UserDefaults.standard.string(forKey: "avoidFoods") ?? "なし"
-        let userMessage = """
-        一人暮らしの今日の朝・昼・夜の献立を提案してください。
-        苦手食材・アレルギー：\(avoidFoods)（使わないでください）
-        必ず以下のJSON形式のみで返してください：
-        {"meals": ["朝食名", "昼食名", "夕食名"]}
-        """
-
         do {
             let response = try await ClaudeAPIClient.shared.send(
                 systemPrompt: "あなたは家庭料理の献立アドバイザーです。JSONのみ返してください。",
-                userMessage: userMessage
+                userMessage: """
+                一人暮らしの今日の朝・昼・夜の献立を提案してください。
+                苦手食材：\(avoidFoods)
+                JSON形式のみで返答：{"meals": ["朝食名", "昼食名", "夕食名"]}
+                """
             )
-            let meals = parseMeals(from: response)
-            todayMeals = meals.isEmpty ? ["ご飯・味噌汁", "うどん", "焼き魚定食"] : meals
+            let clean = response
+                .replacingOccurrences(of: "```json", with: "")
+                .replacingOccurrences(of: "```", with: "")
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            if let data = clean.data(using: .utf8),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let meals = json["meals"] as? [String] {
+                todayMeals = meals
+            } else {
+                todayMeals = ["ご飯・味噌汁", "うどん", "焼き魚定食"]
+            }
         } catch {
-            mealError = "献立の取得に失敗しました"
             todayMeals = ["ご飯・味噌汁", "うどん", "焼き魚定食"]
         }
-    }
-
-    private func parseMeals(from text: String) -> [String] {
-        let clean = text
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = clean.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let meals = json["meals"] as? [String] else { return [] }
-        return meals
     }
 }
 
