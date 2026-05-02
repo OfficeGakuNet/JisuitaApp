@@ -1,302 +1,381 @@
 import SwiftUI
 
 struct SettingsTabView: View {
-    @EnvironmentObject private var settings: UserSettings
-
-    @State private var showBudgetEditor = false
-    @State private var showDietaryEditor = false
-    @State private var showAllergyEditor = false
-    @State private var showDislikedEditor = false
-    @State private var showCuisineEditor = false
+    @EnvironmentObject private var userSettings: UserSettings
 
     var body: some View {
         NavigationStack {
             List {
-                Section("食費予算") {
-                    Button {
-                        showBudgetEditor = true
-                    } label: {
-                        HStack {
-                            Label("月間予算", systemImage: "yensign.circle.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text("¥\(settings.monthlyBudget.formatted())")
-                                .foregroundColor(.secondary)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-
-                Section("食の制限・好み") {
-                    Button {
-                        showAllergyEditor = true
-                    } label: {
-                        HStack {
-                            Label("アレルギー", systemImage: "exclamationmark.shield.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(settings.allergies.isEmpty ? "なし" : settings.allergies.joined(separator: "・"))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Button {
-                        showDietaryEditor = true
-                    } label: {
-                        HStack {
-                            Label("食の制限", systemImage: "leaf.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(settings.dietaryRestrictions.isEmpty ? "なし" : settings.dietaryRestrictions.joined(separator: "・"))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Button {
-                        showDislikedEditor = true
-                    } label: {
-                        HStack {
-                            Label("苦手な食材", systemImage: "hand.thumbsdown.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(settings.dislikedIngredients.isEmpty ? "なし" : settings.dislikedIngredients.joined(separator: "・"))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Button {
-                        showCuisineEditor = true
-                    } label: {
-                        HStack {
-                            Label("好みの料理ジャンル", systemImage: "fork.knife.circle.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(settings.preferredCuisines.isEmpty ? "なし" : settings.preferredCuisines.joined(separator: "・"))
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-
-                Section("料理スキル") {
-                    Picker(selection: $settings.cookingSkill) {
-                        Text("初心者").tag("初心者")
-                        Text("普通").tag("普通")
-                        Text("上級者").tag("上級者")
-                    } label: {
-                        Label("スキルレベル", systemImage: "star.fill")
-                    }
-                }
-
-                Section("固定メニュー") {
-                    NavigationLink {
-                        FixedMenuSettingView()
-                    } label: {
-                        Label("固定メニューを管理", systemImage: "pin.fill")
-                    }
-                }
-
-                Section("通知") {
-                    NavigationLink {
-                        ExpiryAlertView()
-                    } label: {
-                        Label("食材の期限アラート", systemImage: "bell.badge.fill")
-                    }
-                }
+                familySection
+                budgetSection
+                dietarySection
+                menuSection
+                appSection
             }
             .listStyle(.insetGrouped)
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(isPresented: $showBudgetEditor) {
-                BudgetEditorView()
-                    .environmentObject(settings)
-            }
-            .sheet(isPresented: $showAllergyEditor) {
-                TagEditorView(
-                    title: "アレルギー",
-                    subtitle: "アレルギーのある食材を追加してください",
-                    suggestions: ["卵", "乳", "小麦", "そば", "落花生", "えび", "かに", "くるみ"],
-                    tags: $settings.allergies
-                )
-            }
-            .sheet(isPresented: $showDietaryEditor) {
-                TagEditorView(
-                    title: "食の制限",
-                    subtitle: "該当する食の制限を追加してください",
-                    suggestions: ["ベジタリアン", "ヴィーガン", "グルテンフリー", "ハラール", "糖質制限", "塩分制限", "低カロリー"],
-                    tags: $settings.dietaryRestrictions
-                )
-            }
-            .sheet(isPresented: $showDislikedEditor) {
-                TagEditorView(
-                    title: "苦手な食材",
-                    subtitle: "苦手・避けたい食材を追加してください",
-                    suggestions: ["レバー", "パクチー", "納豆", "セロリ", "ピーマン", "にんにく", "しょうが"],
-                    tags: $settings.dislikedIngredients
-                )
-            }
-            .sheet(isPresented: $showCuisineEditor) {
-                TagEditorView(
-                    title: "好みの料理ジャンル",
-                    subtitle: "好きな料理のジャンルを追加してください",
-                    suggestions: ["和食", "洋食", "中華", "イタリアン", "アジアン", "メキシカン", "丼もの", "麺類"],
-                    tags: $settings.preferredCuisines
-                )
-            }
         }
+    }
+
+    private var familySection: some View {
+        Section {
+            NavigationLink(destination: FamilySettingView()) {
+                SettingsRow(
+                    icon: "person.2.fill",
+                    color: Color(hex: "1D9E75"),
+                    title: "家族構成",
+                    subtitle: userSettings.familySummary
+                )
+            }
+        } header: {
+            Text("家族・人数")
+        }
+    }
+
+    private var budgetSection: some View {
+        Section {
+            NavigationLink(destination: BudgetSettingView()) {
+                SettingsRow(
+                    icon: "yensign.circle.fill",
+                    color: .orange,
+                    title: "月間食費予算",
+                    subtitle: "¥\(userSettings.monthlyBudget.formatted())"
+                )
+            }
+        } header: {
+            Text("予算")
+        }
+    }
+
+    private var dietarySection: some View {
+        Section {
+            NavigationLink(destination: DietarySettingView()) {
+                SettingsRow(
+                    icon: "leaf.fill",
+                    color: .green,
+                    title: "食の制限・アレルギー",
+                    subtitle: userSettings.dietarySummary
+                )
+            }
+            NavigationLink(destination: DislikedFoodsView()) {
+                SettingsRow(
+                    icon: "hand.thumbsdown.fill",
+                    color: .red,
+                    title: "苦手な食材",
+                    subtitle: userSettings.dislikedFoodsSummary
+                )
+            }
+            NavigationLink(destination: FavoriteCuisinesView()) {
+                SettingsRow(
+                    icon: "fork.knife",
+                    color: .purple,
+                    title: "好きな料理ジャンル",
+                    subtitle: userSettings.favoriteCuisinesSummary
+                )
+            }
+        } header: {
+            Text("食の好み・制限")
+        }
+    }
+
+    private var menuSection: some View {
+        Section {
+            NavigationLink(destination: FixedMenuSettingView()) {
+                SettingsRow(
+                    icon: "pin.fill",
+                    color: .blue,
+                    title: "固定メニュー",
+                    subtitle: "毎日のルーティン食を登録"
+                )
+            }
+        } header: {
+            Text("献立")
+        }
+    }
+
+    private var appSection: some View {
+        Section {
+            HStack {
+                SettingsRow(
+                    icon: "info.circle.fill",
+                    color: .gray,
+                    title: "バージョン",
+                    subtitle: nil
+                )
+                Spacer()
+                Text(appVersion)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            }
+        } header: {
+            Text("アプリ情報")
+        }
+    }
+
+    private var appVersion: String {
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "1"
+        return "\(version) (\(build))"
     }
 }
 
-struct BudgetEditorView: View {
-    @EnvironmentObject private var settings: UserSettings
-    @Environment(\.dismiss) private var dismiss
-    @State private var inputText = ""
+private struct SettingsRow: View {
+    let icon: String
+    let color: Color
+    let title: String
+    let subtitle: String?
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("月間食費予算") {
-                    HStack {
-                        Text("¥")
-                            .foregroundColor(.secondary)
-                        TextField("30000", text: $inputText)
-                            .keyboardType(.numberPad)
-                    }
-                }
-                Section {
-                    Text("月初めに自動的にリセットされます。")
+        HStack(spacing: 12) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(color)
+                    .frame(width: 32, height: 32)
+                Image(systemName: icon)
+                    .font(.system(size: 16, weight: .medium))
+                    .foregroundColor(.white)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.body)
+                if let subtitle {
+                    Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            .navigationTitle("予算設定")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        if let value = Int(inputText), value > 0 {
-                            settings.monthlyBudget = value
-                        }
-                        dismiss()
+        }
+        .padding(.vertical, 2)
+    }
+}
+
+// MARK: - FamilySettingView
+
+struct FamilySettingView: View {
+    @EnvironmentObject private var userSettings: UserSettings
+
+    var body: some View {
+        List {
+            Section {
+                Stepper(
+                    value: $userSettings.adultCount,
+                    in: 1...10
+                ) {
+                    HStack {
+                        Text("大人")
+                        Spacer()
+                        Text("\(userSettings.adultCount)人")
+                            .foregroundColor(.secondary)
                     }
-                    .fontWeight(.semibold)
-                    .tint(Color(hex: "1D9E75"))
                 }
+                Stepper(
+                    value: $userSettings.childCount,
+                    in: 0...10
+                ) {
+                    HStack {
+                        Text("子ども")
+                        Spacer()
+                        Text("\(userSettings.childCount)人")
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } header: {
+                Text("人数")
+            } footer: {
+                Text("設定した人数はAIによる食材量・献立の提案に反映されます。")
             }
-            .onAppear {
-                inputText = "\(settings.monthlyBudget)"
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("家族構成")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+// MARK: - BudgetSettingView
+
+struct BudgetSettingView: View {
+    @EnvironmentObject private var userSettings: UserSettings
+    @State private var budgetText: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    Text("¥")
+                        .foregroundColor(.secondary)
+                    TextField("30000", text: $budgetText)
+                        .keyboardType(.numberPad)
+                        .focused($isFocused)
+                }
+            } header: {
+                Text("月間予算")
+            } footer: {
+                Text("毎月1日に支出はリセットされます。")
             }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("食費予算")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button("保存") {
+                    if let value = Int(budgetText), value > 0 {
+                        userSettings.monthlyBudget = value
+                        isFocused = false
+                    }
+                }
+                .tint(Color(hex: "1D9E75"))
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完了") { isFocused = false }
+            }
+        }
+        .onAppear {
+            budgetText = String(userSettings.monthlyBudget)
         }
     }
 }
 
-struct TagEditorView: View {
-    let title: String
-    let subtitle: String
-    let suggestions: [String]
-    @Binding var tags: [String]
-    @Environment(\.dismiss) private var dismiss
-    @State private var inputText = ""
-    @State private var localTags: [String] = []
+// MARK: - DietarySettingView
+
+struct DietarySettingView: View {
+    @EnvironmentObject private var userSettings: UserSettings
+
+    private let options: [(String, String)] = [
+        ("vegetarian", "ベジタリアン"),
+        ("vegan", "ヴィーガン"),
+        ("glutenFree", "グルテンフリー"),
+        ("dairyFree", "乳製品なし"),
+        ("halal", "ハラール"),
+        ("lowSodium", "減塩")
+    ]
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section(subtitle) {
-                    HStack {
-                        TextField("追加する項目を入力", text: $inputText)
-                        Button {
-                            let trimmed = inputText.trimmingCharacters(in: .whitespaces)
-                            guard !trimmed.isEmpty, !localTags.contains(trimmed) else { return }
-                            localTags.append(trimmed)
-                            inputText = ""
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundColor(Color(hex: "1D9E75"))
-                        }
-                    }
-                }
-
-                if !localTags.isEmpty {
-                    Section("設定済み") {
-                        ForEach(localTags, id: \.self) { tag in
-                            HStack {
-                                Text(tag)
-                                Spacer()
-                                Button {
-                                    localTags.removeAll { $0 == tag }
-                                } label: {
-                                    Image(systemName: "xmark.circle.fill")
-                                        .foregroundColor(.secondary)
-                                }
-                                .buttonStyle(.plain)
+        List {
+            Section {
+                ForEach(options, id: \.0) { key, label in
+                    Toggle(label, isOn: Binding(
+                        get: { userSettings.dietaryRestrictions.contains(key) },
+                        set: { isOn in
+                            if isOn {
+                                userSettings.dietaryRestrictions.insert(key)
+                            } else {
+                                userSettings.dietaryRestrictions.remove(key)
                             }
                         }
-                    }
-                }
-
-                Section("よく使われる項目") {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
-                        ForEach(suggestions, id: \.self) { suggestion in
-                            let isSelected = localTags.contains(suggestion)
-                            Button {
-                                if isSelected {
-                                    localTags.removeAll { $0 == suggestion }
-                                } else {
-                                    localTags.append(suggestion)
-                                }
-                            } label: {
-                                Text(suggestion)
-                                    .font(.subheadline)
-                                    .padding(.horizontal, 12)
-                                    .padding(.vertical, 6)
-                                    .background(isSelected ? Color(hex: "1D9E75") : Color(.secondarySystemGroupedBackground))
-                                    .foregroundColor(isSelected ? .white : .primary)
-                                    .clipShape(Capsule())
-                            }
-                            .buttonStyle(.plain)
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle(title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        tags = localTags
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
+                    ))
                     .tint(Color(hex: "1D9E75"))
                 }
+            } header: {
+                Text("制限・スタイル")
+            } footer: {
+                Text("選択した制限はAIによる献立提案に反映されます。")
             }
-            .onAppear { localTags = tags }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("食の制限")
+        .navigationBarTitleDisplayMode(.large)
+    }
+}
+
+// MARK: - DislikedFoodsView
+
+struct DislikedFoodsView: View {
+    @EnvironmentObject private var userSettings: UserSettings
+    @State private var newFood: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        List {
+            Section {
+                HStack {
+                    TextField("例：レバー、セロリ", text: $newFood)
+                        .focused($isFocused)
+                    Button(action: addFood) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundColor(Color(hex: "1D9E75"))
+                    }
+                    .disabled(newFood.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+
+            if !userSettings.dislikedFoods.isEmpty {
+                Section(header: Text("登録済み")) {
+                    ForEach(userSettings.dislikedFoods, id: \.self) { food in
+                        Text(food)
+                    }
+                    .onDelete { indices in
+                        userSettings.dislikedFoods.remove(atOffsets: indices)
+                    }
+                }
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("苦手な食材")
+        .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("完了") { isFocused = false }
+            }
+        }
+    }
+
+    private func addFood() {
+        let trimmed = newFood.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        userSettings.dislikedFoods.append(trimmed)
+        newFood = ""
+    }
+}
+
+// MARK: - FavoriteCuisinesView
+
+struct FavoriteCuisinesView: View {
+    @EnvironmentObject private var userSettings: UserSettings
+
+    private let cuisines = [
+        "和食", "洋食", "中華", "イタリアン", "フレンチ",
+        "韓国料理", "タイ料理", "インド料理", "メキシコ料理", "その他"
+    ]
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(cuisines, id: \.self) { cuisine in
+                    let isSelected = userSettings.favoriteCuisines.contains(cuisine)
+                    Button(action: { toggle(cuisine) }) {
+                        HStack {
+                            Text(cuisine)
+                                .foregroundColor(.primary)
+                            Spacer()
+                            if isSelected {
+                                Image(systemName: "checkmark")
+                                    .foregroundColor(Color(hex: "1D9E75"))
+                                    .fontWeight(.semibold)
+                            }
+                        }
+                    }
+                }
+            } header: {
+                Text("ジャンルを選択")
+            } footer: {
+                Text("選択したジャンルはAIによる献立提案の参考にされます。")
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("好きな料理ジャンル")
+        .navigationBarTitleDisplayMode(.large)
+    }
+
+    private func toggle(_ cuisine: String) {
+        if userSettings.favoriteCuisines.contains(cuisine) {
+            userSettings.favoriteCuisines.removeAll { $0 == cuisine }
+        } else {
+            userSettings.favoriteCuisines.append(cuisine)
         }
     }
 }
