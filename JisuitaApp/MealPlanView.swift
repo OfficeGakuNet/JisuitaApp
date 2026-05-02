@@ -46,9 +46,6 @@ struct MealPlanView: View {
             Text("AIが献立を考えています...")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
-            Text(settings.familySummary)
-                .font(.caption)
-                .foregroundColor(.secondary)
             Spacer()
         }
     }

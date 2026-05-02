@@ -1,26 +1,15 @@
 import Foundation
 import SwiftUI
-
-struct FamilyMember: Identifiable, Codable, Equatable {
-    var id = UUID()
-    var role: String
-    var age: Int
-    var gender: String
-}
+import Combine
 
 final class UserSettings: ObservableObject {
     static let shared = UserSettings()
 
-    private let familyMembersKey = "familyMembers"
     private let dietaryRestrictionsKey = "dietaryRestrictions"
     private let allergiesKey = "allergies"
     private let cookingSkillKey = "cookingSkill"
     private let preferredCuisinesKey = "preferredCuisines"
     private let dislikedIngredientsKey = "dislikedIngredients"
-
-    @Published var familyMembers: [FamilyMember] = [] {
-        didSet { save(familyMembers, forKey: familyMembersKey) }
-    }
 
     @Published var dietaryRestrictions: [String] = [] {
         didSet { save(dietaryRestrictions, forKey: dietaryRestrictionsKey) }
@@ -45,16 +34,11 @@ final class UserSettings: ObservableObject {
     @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget = AppDefaults.monthlyBudget
 
     private init() {
-        familyMembers = load([FamilyMember].self, forKey: familyMembersKey) ?? defaultFamilyMembers()
         dietaryRestrictions = load([String].self, forKey: dietaryRestrictionsKey) ?? []
         allergies = load([String].self, forKey: allergiesKey) ?? []
         cookingSkill = UserDefaults.standard.string(forKey: cookingSkillKey) ?? "普通"
         preferredCuisines = load([String].self, forKey: preferredCuisinesKey) ?? []
         dislikedIngredients = load([String].self, forKey: dislikedIngredientsKey) ?? []
-    }
-
-    private func defaultFamilyMembers() -> [FamilyMember] {
-        [FamilyMember(role: "大人", age: 30, gender: "男性")]
     }
 
     private func save<T: Encodable>(_ value: T, forKey key: String) {
@@ -68,12 +52,6 @@ final class UserSettings: ObservableObject {
         return try? JSONDecoder().decode(type, from: data)
     }
 
-    var familySummary: String {
-        if familyMembers.isEmpty { return "家族構成未設定" }
-        let parts = familyMembers.map { "\($0.role)(\($0.age)歳・\($0.gender))" }
-        return parts.joined(separator: "、")
-    }
-
     var restrictionsSummary: String {
         var parts: [String] = []
         if !allergies.isEmpty { parts.append("アレルギー: " + allergies.joined(separator: "・")) }
@@ -84,7 +62,6 @@ final class UserSettings: ObservableObject {
 
     func buildPersonalizedPromptContext() -> String {
         var lines: [String] = []
-        lines.append("【家族構成】\(familySummary)")
         lines.append("【月間食費予算】¥\(monthlyBudget.formatted())")
         lines.append("【料理スキル】\(cookingSkill)")
         if !preferredCuisines.isEmpty {

@@ -13,6 +13,7 @@ enum ReceiptCategory {
 }
 
 struct ReceiptReviewView: View {
+    @StateObject private var budgetViewModel = BudgetViewModel()
     @State private var items: [ReceiptItem] = [
         ReceiptItem(name: "鶏むね肉", price: 298, category: .food, includedInFoodCost: true),
         ReceiptItem(name: "ほうれん草", price: 148, category: .food, includedInFoodCost: true),
@@ -57,13 +58,16 @@ struct ReceiptReviewView: View {
         .navigationBarTitleDisplayMode(.large)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
-                Button("反映する") { showComplete = true }
-                    .fontWeight(.semibold)
-                    .tint(Color(hex: "1D9E75"))
+                Button("反映する") {
+                    budgetViewModel.addSpending(totalFoodCost)
+                    showComplete = true
+                }
+                .fontWeight(.semibold)
+                .tint(Color(hex: "1D9E75"))
             }
         }
         .navigationDestination(isPresented: $showComplete) {
-            BudgetUpdateCompleteView(addedAmount: totalFoodCost)
+            BudgetUpdateCompleteView(addedAmount: totalFoodCost, viewModel: budgetViewModel)
         }
     }
 }

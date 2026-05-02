@@ -2,9 +2,7 @@ import SwiftUI
 
 struct SettingsTabView: View {
     @EnvironmentObject private var settings: UserSettings
-    @StateObject private var budgetViewModel = BudgetViewModel()
 
-    @State private var showFamilyEditor = false
     @State private var showBudgetEditor = false
     @State private var showDietaryEditor = false
     @State private var showAllergyEditor = false
@@ -14,23 +12,6 @@ struct SettingsTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("家族構成") {
-                    Button {
-                        showFamilyEditor = true
-                    } label: {
-                        HStack {
-                            Label("家族メンバー", systemImage: "person.3.fill")
-                                .foregroundColor(.primary)
-                            Spacer()
-                            Text(settings.familyMembers.isEmpty ? "未設定" : "\(settings.familyMembers.count)人")
-                                .foregroundColor(.secondary)
-                            Image(systemName: "chevron.right")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-
                 Section("食費予算") {
                     Button {
                         showBudgetEditor = true
@@ -131,14 +112,18 @@ struct SettingsTabView: View {
                         Label("固定メニューを管理", systemImage: "pin.fill")
                     }
                 }
+
+                Section("通知") {
+                    NavigationLink {
+                        ExpiryAlertView()
+                    } label: {
+                        Label("食材の期限アラート", systemImage: "bell.badge.fill")
+                    }
+                }
             }
             .listStyle(.insetGrouped)
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.large)
-            .sheet(isPresented: $showFamilyEditor) {
-                FamilyMemberEditorView()
-                    .environmentObject(settings)
-            }
             .sheet(isPresented: $showBudgetEditor) {
                 BudgetEditorView()
                     .environmentObject(settings)
@@ -179,68 +164,9 @@ struct SettingsTabView: View {
     }
 }
 
-struct FamilyMemberEditorView: View {
-    @EnvironmentObject private var settings: UserSettings
-    @Environment(\..dismiss) private var dismiss
-    @State private var members: [FamilyMember] = []
-
-    let roles = ["大人", "子供", "高齢者"]
-    let genders = ["男性", "女性", "その他"]
-
-    var body: some View {
-        NavigationStack {
-            List {
-                ForEach($members) { $member in
-                    Section {
-                        Picker("役割", selection: $member.role) {
-                            ForEach(roles, id: \.self) { Text($0).tag($0) }
-                        }
-                        Picker("性別", selection: $member.gender) {
-                            ForEach(genders, id: \.self) { Text($0).tag($0) }
-                        }
-                        Stepper("年齢: \(member.age)歳", value: $member.age, in: 0...120)
-                    }
-                }
-                .onDelete { indices in
-                    members.remove(atOffsets: indices)
-                }
-
-                Section {
-                    Button {
-                        members.append(FamilyMember(role: "大人", age: 30, gender: "男性"))
-                    } label: {
-                        Label("メンバーを追加", systemImage: "plus.circle.fill")
-                            .foregroundColor(Color(hex: "1D9E75"))
-                    }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("家族構成")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        settings.familyMembers = members
-                        dismiss()
-                    }
-                    .fontWeight(.semibold)
-                    .tint(Color(hex: "1D9E75"))
-                }
-                ToolbarItem(placement: .navigationBarLeading) {
-                    if !members.isEmpty { EditButton() }
-                }
-            }
-            .onAppear { members = settings.familyMembers }
-        }
-    }
-}
-
 struct BudgetEditorView: View {
     @EnvironmentObject private var settings: UserSettings
-    @Environment(\..dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     @State private var inputText = ""
 
     var body: some View {
@@ -289,7 +215,7 @@ struct TagEditorView: View {
     let subtitle: String
     let suggestions: [String]
     @Binding var tags: [String]
-    @Environment(\..dismiss) private var dismiss
+    @Environment(\.dismiss) private var dismiss
     @State private var inputText = ""
     @State private var localTags: [String] = []
 
