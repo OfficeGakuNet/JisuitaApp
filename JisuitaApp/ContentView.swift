@@ -76,11 +76,15 @@ struct ShoppingTabView: View {
 
                 if selectedPage == 0 {
                     ShoppingListView()
+                        .transition(.opacity)
                 } else {
                     IngredientTrackerView()
+                        .transition(.opacity)
                 }
             }
-            .navigationTitle("買い出し")
+            .animation(.easeInOut, value: selectedPage)
+            .background(Color(.systemGroupedBackground))
+            .navigationTitle(selectedPage == 0 ? "買い出しリスト" : "食材トラッカー")
             .navigationBarTitleDisplayMode(.large)
         }
     }
