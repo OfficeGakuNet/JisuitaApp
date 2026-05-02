@@ -62,51 +62,39 @@ struct BudgetUpdateCompleteView: View {
                             .fontWeight(.semibold)
                     }
 
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule()
-                                .fill(Color(.systemFill))
-                                .frame(height: 10)
-                            Capsule()
-                                .fill(progressColor)
-                                .frame(width: geo.size.width * budgetRatio, height: 10)
-                        }
-                    }
-                    .frame(height: 10)
-
                     HStack {
-                        Text("残り")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        Text("残り予算")
+                            .font(.subheadline)
                         Spacer()
                         Text("¥\(remaining.formatted())")
-                            .font(.caption)
+                            .font(.subheadline)
                             .foregroundColor(progressColor)
-                            .fontWeight(.semibold)
                     }
+
+                    ProgressView(value: budgetRatio)
+                        .tint(progressColor)
+                        .padding(.top, 4)
                 }
             }
-            .padding(16)
+            .padding()
             .background(Color(.secondarySystemGroupedBackground))
             .cornerRadius(12)
-            .padding(.horizontal, 24)
+            .padding(.horizontal)
 
             Spacer()
 
-            Button {
-                dismiss()
-            } label: {
-                Text("完了")
+            Button(action: { dismiss() }) {
+                Text("閉じる")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
+                    .padding()
                     .background(Color(hex: "1D9E75"))
                     .foregroundColor(.white)
                     .cornerRadius(12)
             }
-            .padding(.horizontal, 24)
+            .padding(.horizontal)
             .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .background(Color(.systemGroupedBackground))
     }
 }
