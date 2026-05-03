@@ -1,62 +1,91 @@
 import SwiftUI
 
-// MARK: - データ型
-
-struct ShoppingItem: Identifiable {
-    let id = UUID()
-    let name: String
-    let category: String
-    var totalAmount: String
-    var usages: [UsageInfo]
+struct ShoppingItem: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var amount: String
     var isChecked: Bool = false
+    var category: String = "その他"
 }
-
-struct UsageInfo {
-    let day: String
-    let mealTime: String
-    let mealName: String
-    let amount: String
-}
-
-// MARK: - カテゴリの順番定義
-
-let categoryOrder = ["米・穀物", "野菜", "豆腐・納豆・卵・麺類", "魚", "肉", "その他"]
-
-// MARK: - メイン画面
 
 struct ShoppingListView: View {
-    @State private var meals: [Meal] = []
-    @State private var shoppingItems: [ShoppingItem] = []
+    @AppStorage("shoppingItems") private var shoppingItemsData: Data = Data()
+    @State private var items: [ShoppingItem] = []
+    @State private var showAddSheet = false
+    @State private var showCheckedItems = true
+
+    private var uncheckedItems: [ShoppingItem] { items.filter { !$0.isChecked } }
+    private var checkedItems: [ShoppingItem] { items.filter { $0.isChecked } }
 
     var body: some View {
-        NavigationView {
-            Group {
-                if shoppingItems.isEmpty {
-                    emptyView
-                } else {
-                    itemListView
-                }
-            }
-            .navigationTitle("買い出しリスト")
-            .onAppear {
-                buildShoppingList()
+        Group {
+            if items.isEmpty {
+                emptyView
+            } else {
+                listView
             }
         }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showAddSheet = true }) {
+                    Image(systemName: "plus")
+                }
+                .tint(Color(hex: "1D9E75"))
+            }
+            ToolbarItem(placement: .navigationBarLeading) {
+                if !checkedItems.isEmpty {
+                    Button("完了済みを削除") { removeChecked() }
+                        .font(.caption)
+                        .tint(.red)
+                }
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddShoppingItemSheet { newItem in
+                items.append(newItem)
+                save()
+            }
+        }
+        .onAppear { load() }
     }
 
-    // MARK: - カテゴリ別セクション表示
+    private var emptyView: some View {
+        ContentUnavailableView(
+            "買い出しリストが空です",
+            systemImage: "cart",
+            description: Text("+ボタンでアイテムを追加してください")
+        )
+    }
 
-    private var itemListView: some View {
+    private var listView: some View {
         List {
-            ForEach(categoryOrder, id: \.self) { category in
-                let items = shoppingItems.filter { $0.category == category }
-                if !items.isEmpty {
-                    Section(header: Text(category).font(.subheadline).fontWeight(.bold)) {
-                        ForEach(items.indices, id: \.self) { index in
-                            if let realIndex = shoppingItems.firstIndex(where: { $0.id == items[index].id }) {
-                                ShoppingItemRow(item: $shoppingItems[realIndex])
-                            }
+            if !uncheckedItems.isEmpty {
+                Section("未購入 (\(uncheckedItems.count))") {
+                    ForEach(uncheckedItems) { item in
+                        ShoppingItemRow(item: item) { updated in
+                            updateItem(updated)
                         }
+                    }
+                    .onDelete { indices in
+                        deleteItems(from: uncheckedItems, at: indices)
+                    }
+                }
+            }
+
+            if !checkedItems.isEmpty {
+                Section {
+                    ForEach(checkedItems) { item in
+                        ShoppingItemRow(item: item) { updated in
+                            updateItem(updated)
+                        }
+                    }
+                    .onDelete { indices in
+                        deleteItems(from: checkedItems, at: indices)
+                    }
+                } header: {
+                    HStack {
+                        Text("購入済み (\(checkedItems.count))")
+                        Spacer()
                     }
                 }
             }
@@ -64,191 +93,121 @@ struct ShoppingListView: View {
         .listStyle(.insetGrouped)
     }
 
-    // MARK: - 空の状態
-
-    private var emptyView: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "cart")
-                .font(.system(size: 60))
-                .foregroundColor(.gray.opacity(0.4))
-            Text("献立を生成すると\n買い出しリストが自動で作られます")
-                .multilineTextAlignment(.center)
-                .foregroundColor(.gray)
+    private func updateItem(_ updated: ShoppingItem) {
+        if let idx = items.firstIndex(where: { $0.id == updated.id }) {
+            items[idx] = updated
+            save()
         }
     }
 
-    // MARK: - 献立から食材リストを組み立てる
-
-    private func buildShoppingList() {
-        if let data = UserDefaults.standard.data(forKey: "savedMealPlan"),
-           let saved = try? JSONDecoder().decode([Meal].self, from: data) {
-            meals = saved
-        }
-
-        guard let ingredientsData = UserDefaults.standard.data(forKey: "savedIngredients"),
-              let ingredientsMap = try? JSONSerialization.jsonObject(with: ingredientsData) as? [String: [[String: String]]]
-        else {
-            shoppingItems = []
-            return
-        }
-
-        var itemDict: [String: ShoppingItem] = [:]
-
-        for meal in meals {
-            guard let ingredients = ingredientsMap[meal.name] else { continue }
-
-            for ingredient in ingredients {
-                guard let name = ingredient["name"],
-                      let amount = ingredient["amount"] else { continue }
-
-                let category = ingredient["category"] ?? "その他"
-
-                let usage = UsageInfo(
-                    day: meal.day,
-                    mealTime: meal.mealTime,
-                    mealName: meal.name,
-                    amount: amount
-                )
-
-                if var existing = itemDict[name] {
-                    existing.usages.append(usage)
-                    existing.totalAmount = mergedAmount(usages: existing.usages)
-                    itemDict[name] = existing
-                } else {
-                    itemDict[name] = ShoppingItem(
-                        name: name,
-                        category: category,
-                        totalAmount: amount,
-                        usages: [usage]
-                    )
-                }
-            }
-        }
-
-        shoppingItems = itemDict.values.sorted { $0.name < $1.name }
+    private func deleteItems(from source: [ShoppingItem], at offsets: IndexSet) {
+        let idsToDelete = offsets.map { source[$0].id }
+        items.removeAll { idsToDelete.contains($0.id) }
+        save()
     }
 
-    private func mergedAmount(usages: [UsageInfo]) -> String {
-        // 単位を抽出して同じ単位なら合計する
-        var total: Double = 0
-        var unit: String = ""
-        var canSum = true
-
-        for usage in usages {
-            let (value, u) = parseAmount(usage.amount)
-            if let v = value {
-                if unit.isEmpty { unit = u }
-                if unit == u {
-                    total += v
-                } else {
-                    canSum = false
-                    break
-                }
-            } else {
-                canSum = false
-                break
-            }
-        }
-
-        if canSum && !unit.isEmpty {
-            // 小数点以下が不要なら整数で表示
-            if total == total.rounded() {
-                return "\(Int(total))\(unit)"
-            } else {
-                return "\(total)\(unit)"
-            }
-        }
-
-        // 計算できない場合はそのまま並べる
-        return usages.map { $0.amount }.joined(separator: " + ")
+    private func removeChecked() {
+        items.removeAll { $0.isChecked }
+        save()
     }
 
-    // 量の文字列から数値と単位を分離する
-    private func parseAmount(_ amount: String) -> (Double?, String) {
-        // ご飯の「膳」は200gとして換算
-        if amount.hasSuffix("膳") {
-            let numStr = amount.replacingOccurrences(of: "膳", with: "")
-            if let value = Double(numStr) {
-                let grams = value * 200
-                return (grams, "g")
-            }
-        }
-        let units = ["ml", "g", "個", "本", "枚", "袋", "丁", "玉", "切れ", "缶"]
-        for unit in units {
-            if amount.hasSuffix(unit) {
-                let numStr = amount.replacingOccurrences(of: unit, with: "")
-                if let value = Double(numStr) {
-                    return (value, unit)
-                }
-            }
-        }
-        return (nil, "")
+    private func save() {
+        shoppingItemsData = (try? JSONEncoder().encode(items)) ?? Data()
+    }
+
+    private func load() {
+        items = (try? JSONDecoder().decode([ShoppingItem].self, from: shoppingItemsData)) ?? []
     }
 }
 
-// MARK: - 食材1行分
-
-struct ShoppingItemRow: View {
-    @Binding var item: ShoppingItem
-    @State private var isExpanded = false
+private struct ShoppingItemRow: View {
+    let item: ShoppingItem
+    let onUpdate: (ShoppingItem) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Button(action: { item.isChecked.toggle() }) {
-                    Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 24))
-                        .foregroundColor(item.isChecked ? .green : .gray)
-                }
-                .buttonStyle(.plain)
+        HStack(spacing: 12) {
+            Button {
+                var updated = item
+                updated.isChecked.toggle()
+                onUpdate(updated)
+            } label: {
+                Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundColor(item.isChecked ? Color(hex: "1D9E75") : .secondary)
+            }
+            .buttonStyle(.plain)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(item.name)
-                        .font(.body)
-                        .foregroundColor(item.isChecked ? .gray : .primary)
-                    Text("合計：\(item.totalAmount)")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(item.name)
+                    .font(.body)
+                    .strikethrough(item.isChecked)
+                    .foregroundColor(item.isChecked ? .secondary : .primary)
+                if !item.amount.isEmpty {
+                    Text(item.amount)
                         .font(.caption)
-                        .foregroundColor(.gray)
-                }
-
-                Spacer()
-
-                if item.usages.count > 1 {
-                    Button(action: { withAnimation { isExpanded.toggle() } }) {
-                        Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .foregroundColor(.gray)
-                    }
-                    .buttonStyle(.plain)
-                } else if let usage = item.usages.first {
-                    Text("\(usage.day)曜\(usage.mealTime)")
-                        .font(.caption2)
                         .foregroundColor(.secondary)
                 }
             }
-            .padding(.vertical, 4)
 
-            if isExpanded {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(item.usages, id: \.mealName) { usage in
-                        HStack {
-                            Text("・\(usage.day)曜 \(usage.mealTime)：\(usage.mealName)")
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                            Spacer()
-                            Text(usage.amount)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                }
-                .padding(.leading, 36)
-                .padding(.bottom, 6)
-                .transition(.opacity)
+            Spacer()
+
+            if !item.category.isEmpty && item.category != "その他" {
+                Text(item.category)
+                    .font(.caption2)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(hex: "1D9E75").opacity(0.12))
+                    .foregroundColor(Color(hex: "1D9E75"))
+                    .clipShape(Capsule())
             }
         }
+        .padding(.vertical, 4)
     }
 }
 
-#Preview {
-    ShoppingListView()
+private struct AddShoppingItemSheet: View {
+    let onAdd: (ShoppingItem) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var amount = ""
+    @State private var category = "その他"
+
+    private let categories = ["その他", "野菜", "肉・魚", "乳製品", "調味料", "冷凍食品", "飲み物", "お菓子"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("アイテム名") {
+                    TextField("例: 鶏むね肉", text: $name)
+                }
+                Section("数量・単位") {
+                    TextField("例: 300g", text: $amount)
+                }
+                Section("カテゴリ") {
+                    Picker("カテゴリ", selection: $category) {
+                        ForEach(categories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .navigationTitle("アイテムを追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("追加") {
+                        guard !name.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+                        let newItem = ShoppingItem(name: name.trimmingCharacters(in: .whitespaces), amount: amount, category: category)
+                        onAdd(newItem)
+                        dismiss()
+                    }
+                    .tint(Color(hex: "1D9E75"))
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
+        }
+    }
 }

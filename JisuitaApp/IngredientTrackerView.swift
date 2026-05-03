@@ -1,233 +1,424 @@
 import SwiftUI
 
-// MARK: - データ型
-
-struct UsagePlan: Identifiable, Codable {
-    var id = UUID()
-    var day: String
-    var mealTime: String
-    var dishName: String
-    var amount: String
-    var isDone: Bool
-}
-
-struct TrackerIngredient: Identifiable, Codable {
+struct TrackedIngredient: Identifiable, Codable {
     var id = UUID()
     var name: String
-    var category: String
-    var purchasedAmount: String
-    var remainingAmount: String
-    var purchasedValue: Double
-    var remainingValue: Double
-    var usagePlans: [UsagePlan]
+    var quantity: String
+    var unit: String
+    var status: StockStatus
+    var expiryDate: Date?
+    var category: String = "その他"
 
-    var isFullyPlanned: Bool {
-        !usagePlans.isEmpty
-    }
+    enum StockStatus: String, Codable, CaseIterable {
+        case sufficient = "十分"
+        case low = "少ない"
+        case outOfStock = "在庫なし"
 
-    var hasNoPlan: Bool {
-        usagePlans.isEmpty
-    }
+        var color: Color {
+            switch self {
+            case .sufficient: return Color(hex: "1D9E75")
+            case .low: return .orange
+            case .outOfStock: return .red
+            }
+        }
 
-    var remainingRatio: Double {
-        guard purchasedValue > 0 else { return 0 }
-        return min(remainingValue / purchasedValue, 1.0)
+        var icon: String {
+            switch self {
+            case .sufficient: return "checkmark.circle.fill"
+            case .low: return "exclamationmark.circle.fill"
+            case .outOfStock: return "xmark.circle.fill"
+            }
+        }
     }
 }
-
-// MARK: - メインビュー
 
 struct IngredientTrackerView: View {
+    @AppStorage("trackedIngredients") private var ingredientsData: Data = Data()
+    @State private var ingredients: [TrackedIngredient] = []
+    @State private var showAddSheet = false
+    @State private var selectedFilter: TrackedIngredient.StockStatus? = nil
+    @State private var editingIngredient: TrackedIngredient? = nil
 
-    @State private var ingredients: [TrackerIngredient] = Self.loadSampleData()
-
-    let categoryOrder = ["米・穀物", "野菜", "豆腐・納豆・卵・麺類", "魚", "肉", "その他"]
+    private var filteredIngredients: [TrackedIngredient] {
+        guard let filter = selectedFilter else { return ingredients }
+        return ingredients.filter { $0.status == filter }
+    }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 0) {
-
-                periodHeader
-
-                LazyVStack(spacing: 12) {
-                    ForEach(sortedIngredients) { ingredient in
-                        IngredientTrackerCard(ingredient: ingredient) { updated in
-                            updateIngredient(updated)
-                        }
-                        .padding(.horizontal)
-                    }
-                }
-                .padding(.vertical, 12)
-            }
-        }
-        .background(Color(.systemGroupedBackground))
-    }
-
-    private var periodHeader: some View {
-        HStack {
-            Image(systemName: "calendar")
-                .foregroundColor(Color(hex: "1D9E75"))
-            Text("今週の食材トラッカー")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
-            Spacer()
-        }
-        .padding(.horizontal)
-        .padding(.vertical, 10)
-        .background(Color(.systemGroupedBackground))
-    }
-
-    private var sortedIngredients: [TrackerIngredient] {
-        ingredients.sorted { lhs, rhs in
-            let li = categoryOrder.firstIndex(of: lhs.category) ?? categoryOrder.count
-            let ri = categoryOrder.firstIndex(of: rhs.category) ?? categoryOrder.count
-            return li < ri
-        }
-    }
-
-    private func updateIngredient(_ updated: TrackerIngredient) {
-        if let idx = ingredients.firstIndex(where: { $0.id == updated.id }) {
-            ingredients[idx] = updated
-        }
-    }
-
-    static func loadSampleData() -> [TrackerIngredient] {
-        [
-            TrackerIngredient(
-                name: "鶏むね肉",
-                category: "肉",
-                purchasedAmount: "300g",
-                remainingAmount: "200g",
-                purchasedValue: 300,
-                remainingValue: 200,
-                usagePlans: [
-                    UsagePlan(day: "木", mealTime: "昼", dishName: "お弁当（照り焼き）", amount: "100g", isDone: false)
-                ]
-            ),
-            TrackerIngredient(
-                name: "ほうれん草",
-                category: "野菜",
-                purchasedAmount: "1束",
-                remainingAmount: "1/2束",
-                purchasedValue: 1,
-                remainingValue: 0.5,
-                usagePlans: [
-                    UsagePlan(day: "水", mealTime: "夜", dishName: "ほうれん草の胡麻和え", amount: "1/2束", isDone: false)
-                ]
-            ),
-            TrackerIngredient(
-                name: "豆腐",
-                category: "豆腐・納豆・卵・麺類",
-                purchasedAmount: "1丁",
-                remainingAmount: "1/2丁",
-                purchasedValue: 1,
-                remainingValue: 0.5,
-                usagePlans: []
-            )
-        ]
-    }
-}
-
-// MARK: - カードビュー
-
-struct IngredientTrackerCard: View {
-    let ingredient: TrackerIngredient
-    let onUpdate: (TrackerIngredient) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(ingredient.name)
-                        .font(.headline)
-                    Text(ingredient.category)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(ingredient.remainingAmount)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(remainingColor)
-                    Text("/ " + ingredient.purchasedAmount)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-            }
-
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemFill))
-                        .frame(height: 6)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(remainingColor)
-                        .frame(width: geo.size.width * ingredient.remainingRatio, height: 6)
-                }
-            }
-            .frame(height: 6)
-
-            if ingredient.hasNoPlan {
-                Label("使い道未定", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundColor(.orange)
+        Group {
+            if ingredients.isEmpty {
+                emptyView
             } else {
-                ForEach(ingredient.usagePlans) { plan in
-                    UsagePlanRow(plan: plan) { updated in
-                        var copy = ingredient
-                        if let idx = copy.usagePlans.firstIndex(where: { $0.id == updated.id }) {
-                            copy.usagePlans[idx] = updated
-                        }
-                        onUpdate(copy)
-                    }
+                listView
+            }
+        }
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(action: { showAddSheet = true }) {
+                    Image(systemName: "plus")
+                }
+                .tint(Color(hex: "1D9E75"))
+            }
+        }
+        .sheet(isPresented: $showAddSheet) {
+            AddIngredientSheet { newIngredient in
+                ingredients.append(newIngredient)
+                save()
+            }
+        }
+        .sheet(item: $editingIngredient) { ingredient in
+            EditIngredientSheet(ingredient: ingredient) { updated in
+                if let idx = ingredients.firstIndex(where: { $0.id == updated.id }) {
+                    ingredients[idx] = updated
+                    save()
                 }
             }
         }
-        .padding(14)
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .onAppear { load() }
     }
 
-    private var remainingColor: Color {
-        if ingredient.remainingRatio > 0.5 {
-            return Color(hex: "1D9E75")
-        } else if ingredient.remainingRatio > 0.2 {
-            return .orange
-        } else {
-            return .red
+    private var emptyView: some View {
+        ContentUnavailableView(
+            "食材が登録されていません",
+            systemImage: "leaf",
+            description: Text("+ボタンで食材を追加し\n在庫状況を管理しましょう")
+        )
+    }
+
+    private var listView: some View {
+        VStack(spacing: 0) {
+            filterBar
+            List {
+                summarySection
+                ForEach(filteredIngredients) { ingredient in
+                    IngredientRow(ingredient: ingredient) {
+                        editingIngredient = ingredient
+                    } onStatusChange: { newStatus in
+                        updateStatus(for: ingredient, to: newStatus)
+                    }
+                }
+                .onDelete { indices in
+                    deleteIngredients(from: filteredIngredients, at: indices)
+                }
+            }
+            .listStyle(.insetGrouped)
+        }
+    }
+
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                FilterChip(label: "すべて", isSelected: selectedFilter == nil) {
+                    selectedFilter = nil
+                }
+                ForEach(TrackedIngredient.StockStatus.allCases, id: \.self) { status in
+                    FilterChip(label: status.rawValue, isSelected: selectedFilter == status) {
+                        selectedFilter = selectedFilter == status ? nil : status
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .background(Color(.systemGroupedBackground))
+    }
+
+    private var summarySection: some View {
+        Section {
+            HStack(spacing: 0) {
+                ForEach(TrackedIngredient.StockStatus.allCases, id: \.self) { status in
+                    let count = ingredients.filter { $0.status == status }.count
+                    VStack(spacing: 4) {
+                        Text("\(count)")
+                            .font(.title2)
+                            .fontWeight(.bold)
+                            .foregroundColor(status.color)
+                        Text(status.rawValue)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+
+    private func updateStatus(for ingredient: TrackedIngredient, to status: TrackedIngredient.StockStatus) {
+        if let idx = ingredients.firstIndex(where: { $0.id == ingredient.id }) {
+            ingredients[idx].status = status
+            save()
+        }
+    }
+
+    private func deleteIngredients(from source: [TrackedIngredient], at offsets: IndexSet) {
+        let idsToDelete = offsets.map { source[$0].id }
+        ingredients.removeAll { idsToDelete.contains($0.id) }
+        save()
+    }
+
+    private func save() {
+        ingredientsData = (try? JSONEncoder().encode(ingredients)) ?? Data()
+    }
+
+    private func load() {
+        ingredients = (try? JSONDecoder().decode([TrackedIngredient].self, from: ingredientsData)) ?? []
+    }
+}
+
+private struct FilterChip: View {
+    let label: String
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Text(label)
+                .font(.caption)
+                .fontWeight(isSelected ? .semibold : .regular)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(isSelected ? Color(hex: "1D9E75") : Color(.systemBackground))
+                .foregroundColor(isSelected ? .white : .primary)
+                .clipShape(Capsule())
+                .overlay(
+                    Capsule()
+                        .stroke(isSelected ? Color.clear : Color(.systemGray4), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct IngredientRow: View {
+    let ingredient: TrackedIngredient
+    let onEdit: () -> Void
+    let onStatusChange: (TrackedIngredient.StockStatus) -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: ingredient.status.icon)
+                .font(.title3)
+                .foregroundColor(ingredient.status.color)
+                .frame(width: 28)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(ingredient.name)
+                    .font(.body)
+                HStack(spacing: 4) {
+                    if !ingredient.quantity.isEmpty {
+                        Text("\(ingredient.quantity)\(ingredient.unit)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    if let expiry = ingredient.expiryDate {
+                        Text("期限: \(expiry, style: .date)")
+                            .font(.caption)
+                            .foregroundColor(expiryColor(for: expiry))
+                    }
+                }
+            }
+
+            Spacer()
+
+            Menu {
+                ForEach(TrackedIngredient.StockStatus.allCases, id: \.self) { status in
+                    Button {
+                        onStatusChange(status)
+                    } label: {
+                        Label(status.rawValue, systemImage: status.icon)
+                    }
+                }
+                Divider()
+                Button(action: onEdit) {
+                    Label("編集", systemImage: "pencil")
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .foregroundColor(.secondary)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func expiryColor(for date: Date) -> Color {
+        let days = Calendar.current.dateComponents([.day], from: Date(), to: date).day ?? 0
+        if days <= 1 { return .red }
+        if days <= 3 { return .orange }
+        return .secondary
+    }
+}
+
+private struct AddIngredientSheet: View {
+    let onAdd: (TrackedIngredient) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var name = ""
+    @State private var quantity = ""
+    @State private var unit = "g"
+    @State private var status: TrackedIngredient.StockStatus = .sufficient
+    @State private var hasExpiry = false
+    @State private var expiryDate = Date()
+    @State private var category = "その他"
+
+    private let units = ["g", "kg", "ml", "L", "個", "本", "袋", "枚", "缶", "パック"]
+    private let categories = ["その他", "野菜", "肉・魚", "乳製品", "調味料", "冷凍食品", "飲み物"]
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("食材名") {
+                    TextField("例: 鶏むね肉", text: $name)
+                }
+                Section("数量") {
+                    HStack {
+                        TextField("例: 300", text: $quantity)
+                            .keyboardType(.decimalPad)
+                        Picker("単位", selection: $unit) {
+                            ForEach(units, id: \.self) { Text($0).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                    }
+                }
+                Section("在庫状況") {
+                    Picker("状況", selection: $status) {
+                        ForEach(TrackedIngredient.StockStatus.allCases, id: \.self) {
+                            Text($0.rawValue).tag($0)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("賞味期限") {
+                    Toggle("設定する", isOn: $hasExpiry)
+                        .tint(Color(hex: "1D9E75"))
+                    if hasExpiry {
+                        DatePicker("期限日", selection: $expiryDate, displayedComponents: .date)
+                    }
+                }
+                Section("カテゴリ") {
+                    Picker("カテゴリ", selection: $category) {
+                        ForEach(categories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .navigationTitle("食材を追加")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("追加") {
+                        let newIngredient = TrackedIngredient(
+                            name: name.trimmingCharacters(in: .whitespaces),
+                            quantity: quantity,
+                            unit: unit,
+                            status: status,
+                            expiryDate: hasExpiry ? expiryDate : nil,
+                            category: category
+                        )
+                        onAdd(newIngredient)
+                        dismiss()
+                    }
+                    .tint(Color(hex: "1D9E75"))
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
         }
     }
 }
 
-// MARK: - 使用予定行
+private struct EditIngredientSheet: View {
+    let ingredient: TrackedIngredient
+    let onSave: (TrackedIngredient) -> Void
+    @Environment(\.dismiss) private var dismiss
 
-private struct UsagePlanRow: View {
-    let plan: UsagePlan
-    let onToggle: (UsagePlan) -> Void
+    @State private var name: String
+    @State private var quantity: String
+    @State private var unit: String
+    @State private var status: TrackedIngredient.StockStatus
+    @State private var hasExpiry: Bool
+    @State private var expiryDate: Date
+    @State private var category: String
+
+    private let units = ["g", "kg", "ml", "L", "個", "本", "袋", "枚", "缶", "パック"]
+    private let categories = ["その他", "野菜", "肉・魚", "乳製品", "調味料", "冷凍食品", "飲み物"]
+
+    init(ingredient: TrackedIngredient, onSave: @escaping (TrackedIngredient) -> Void) {
+        self.ingredient = ingredient
+        self.onSave = onSave
+        _name = State(initialValue: ingredient.name)
+        _quantity = State(initialValue: ingredient.quantity)
+        _unit = State(initialValue: ingredient.unit)
+        _status = State(initialValue: ingredient.status)
+        _hasExpiry = State(initialValue: ingredient.expiryDate != nil)
+        _expiryDate = State(initialValue: ingredient.expiryDate ?? Date())
+        _category = State(initialValue: ingredient.category)
+    }
 
     var body: some View {
-        HStack(spacing: 8) {
-            Button {
-                var updated = plan
-                updated.isDone.toggle()
-                onToggle(updated)
-            } label: {
-                Image(systemName: plan.isDone ? "checkmark.circle.fill" : "circle")
-                    .foregroundColor(plan.isDone ? Color(hex: "1D9E75") : .secondary)
+        NavigationStack {
+            Form {
+                Section("食材名") {
+                    TextField("例: 鶏むね肉", text: $name)
+                }
+                Section("数量") {
+                    HStack {
+                        TextField("例: 300", text: $quantity)
+                            .keyboardType(.decimalPad)
+                        Picker("単位", selection: $unit) {
+                            ForEach(units, id: \.self) { Text($0).tag($0) }
+                        }
+                        .pickerStyle(.menu)
+                        .labelsHidden()
+                    }
+                }
+                Section("在庫状況") {
+                    Picker("状況", selection: $status) {
+                        ForEach(TrackedIngredient.StockStatus.allCases, id: \.self) {
+                            Text($0.rawValue).tag($0)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                }
+                Section("賞味期限") {
+                    Toggle("設定する", isOn: $hasExpiry)
+                        .tint(Color(hex: "1D9E75"))
+                    if hasExpiry {
+                        DatePicker("期限日", selection: $expiryDate, displayedComponents: .date)
+                    }
+                }
+                Section("カテゴリ") {
+                    Picker("カテゴリ", selection: $category) {
+                        ForEach(categories, id: \.self) { Text($0).tag($0) }
+                    }
+                    .pickerStyle(.menu)
+                }
             }
-            .buttonStyle(.plain)
-
-            Text("\(plan.day) \(plan.mealTime) · \(plan.dishName)")
-                .font(.caption)
-                .foregroundColor(plan.isDone ? .secondary : .primary)
-                .strikethrough(plan.isDone)
-
-            Spacer()
-
-            Text(plan.amount)
-                .font(.caption2)
-                .foregroundColor(.secondary)
+            .navigationTitle("食材を編集")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        var updated = ingredient
+                        updated.name = name.trimmingCharacters(in: .whitespaces)
+                        updated.quantity = quantity
+                        updated.unit = unit
+                        updated.status = status
+                        updated.expiryDate = hasExpiry ? expiryDate : nil
+                        updated.category = category
+                        onSave(updated)
+                        dismiss()
+                    }
+                    .tint(Color(hex: "1D9E75"))
+                    .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty)
+                }
+            }
         }
     }
 }
