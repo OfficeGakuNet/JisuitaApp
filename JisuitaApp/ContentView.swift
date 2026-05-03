@@ -80,8 +80,9 @@ struct ShoppingTabView: View {
                     IngredientTrackerView()
                 }
             }
-            .navigationTitle("買い出し")
+            .navigationTitle(selectedPage == 0 ? "買い出しリスト" : "食材トラッカー")
             .navigationBarTitleDisplayMode(.large)
+            .background(Color(.systemGroupedBackground))
         }
     }
 }
