@@ -36,10 +36,10 @@ struct Meal: Identifiable, Codable {
 
 struct MealSlot: Identifiable, Codable {
     let id: UUID
-    var day: String       // 曜日（"月"〜"日"）
-    var mealTime: String  // 食事時間（"朝" / "昼" / "夜"）
-    var name: String      // 料理名（"未設定" or AI提案結果）
-    var isCooking: Bool   // 自炊するか
+    var day: String
+    var mealTime: String
+    var name: String
+    var isCooking: Bool
 
     init(id: UUID = UUID(), day: String, mealTime: String, name: String = "未設定", isCooking: Bool = true) {
         self.id = id
@@ -63,7 +63,9 @@ enum APIError: LocalizedError {
             case .notConnectedToInternet:
                 return "インターネットに接続されていません"
             case .timedOut:
-                return "通信がタイムアウトしました"
+                return "通信がタイムアウトしました。しばらくしてから再試行してください"
+            case .networkConnectionLost:
+                return "ネットワーク接続が切れました"
             default:
                 return "ネットワークエラーが発生しました"
             }
@@ -73,6 +75,15 @@ enum APIError: LocalizedError {
             return "レスポンスの解析に失敗しました"
         case .unknown:
             return "不明なエラーが発生しました"
+        }
+    }
+
+    var isRetryable: Bool {
+        switch self {
+        case .network(let urlError):
+            return urlError.code == .timedOut || urlError.code == .networkConnectionLost
+        default:
+            return false
         }
     }
 }
