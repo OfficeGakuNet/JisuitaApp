@@ -1,0 +1,32 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(brew install *)",
+      "Bash(gh auth *)",
+      "Bash(gh issue *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh pr *)",
+      "Bash(gh workflow *)",
+      "Bash(gh api *)",
+      "Bash(python3 -c \"import sys,json; prs=json.load\\(sys.stdin\\); [print\\(f'#{p[\\\\\"number\\\\\"]} {p[\\\\\"title\\\\\"]} [{p[\\\\\"state\\\\\"]}]'\\) for p in prs]\")",
+      "Bash(python3 -c \"import sys,json; [print\\(b['name']\\) for b in json.load\\(sys.stdin\\)]\")",
+      "Bash(gh run *)",
+      "Bash(git commit *)",
+      "Bash(python3 -c \"import sys,json; prs=json.load\\(sys.stdin\\); [print\\(f'PR #{p[\\\\\"number\\\\\"]}: {p[\\\\\"title\\\\\"]}\\\\n  {p[\\\\\"html_url\\\\\"]}'\\) for p in prs] or print\\('PRなし'\\)\")",
+      "Bash(python3 -c \"import sys,json; pr=json.load\\(sys.stdin\\); print\\(f'状態: {pr[\\\\\"state\\\\\"]}\\\\nマージ可能: {pr[\\\\\"mergeable\\\\\"]}\\\\nURL: {pr[\\\\\"html_url\\\\\"]}'\\)\")",
+      "Bash(git pull *)",
+      "Bash(git rebase *)",
+      "Bash(git fetch *)",
+      "Bash(git reset *)",
+      "Bash(python3 -c \"import json,sys; runs=json.load\\(sys.stdin\\); [print\\(r['createdAt'], r['event'], r['conclusion'], r['displayTitle'][:40]\\) for r in runs]\")",
+      "Bash(grep -rn \"\\\\$0\\\\.meal\\\\b\\\\|slot\\\\.meal\\\\b\\\\|\\\\.meal ==\" /Users/OfficeGaku/Documents/JisuitaApp/JisuitaApp/)",
+      "Bash(python3 -c \"import json,sys; prs=json.load\\(sys.stdin\\); [print\\(p['number'], p['state'], p['createdAt'][:10], p['title'][:50]\\) for p in prs]\")",
+      "Bash(python3 -c \"import json,sys; [print\\(r['databaseId'], r['createdAt'], r['displayTitle'][:30]\\) for r in json.load\\(sys.stdin\\)]\")",
+      "Bash(python3 -c ' *)",
+      "Bash(python3 -c \"import json,sys; prs=json.load\\(sys.stdin\\); [print\\(f'#{p[\\\\\"number\\\\\"]} [{p[\\\\\"mergeable\\\\\"]}] {p[\\\\\"title\\\\\"]}'\\) for p in prs]\")",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); [print\\(f['path']\\) for f in d['files']]\")",
+      "Bash(git checkout *)"
+    ]
+  }
+}
