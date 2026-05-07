@@ -1,10 +1,26 @@
 import SwiftUI
 
+private struct PlanShoppingItem: Identifiable {
+    var id = UUID()
+    var name: String
+    var category: String
+    var totalAmount: String
+    var usages: [UsageInfo]
+    var isChecked: Bool = false
+}
+
+private struct UsageInfo {
+    var day: String
+    var mealTime: String
+    var mealName: String
+    var amount: String
+}
+
 struct ShoppingListWithPlanView: View {
-    @State private var items: [ShoppingItem] = ShoppingListWithPlanView.sampleItems()
+    @State private var items: [PlanShoppingItem] = ShoppingListWithPlanView.sampleItems()
     let shoppingCategoryOrder = ["米・穀物", "野菜", "豆腐・納豆・卵・麺類", "魚", "肉", "その他"]
 
-    var groupedItems: [(String, [ShoppingItem])] {
+    var groupedItems: [(String, [PlanShoppingItem])] {
         let dict = Dictionary(grouping: items, by: \.category)
         return shoppingCategoryOrder.compactMap { cat in
             guard let group = dict[cat], !group.isEmpty else { return nil }
@@ -27,25 +43,25 @@ struct ShoppingListWithPlanView: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
-    private func toggle(_ item: ShoppingItem) {
+    private func toggle(_ item: PlanShoppingItem) {
         guard let idx = items.firstIndex(where: { $0.id == item.id }) else { return }
         items[idx].isChecked.toggle()
     }
 
-    static func sampleItems() -> [ShoppingItem] {
+    private static func sampleItems() -> [PlanShoppingItem] {
         [
-            ShoppingItem(name: "鶏むね肉", category: "肉", totalAmount: "300g", usages: [
+            PlanShoppingItem(name: "鶏むね肉", category: "肉", totalAmount: "300g", usages: [
                 UsageInfo(day: "月", mealTime: "夜", mealName: "鶏の照り焼き", amount: "150g"),
                 UsageInfo(day: "水", mealTime: "昼", mealName: "お弁当（蒸し鶏）", amount: "150g")
             ]),
-            ShoppingItem(name: "ほうれん草", category: "野菜", totalAmount: "1束", usages: [
+            PlanShoppingItem(name: "ほうれん草", category: "野菜", totalAmount: "1束", usages: [
                 UsageInfo(day: "火", mealTime: "夜", mealName: "ほうれん草の胡麻和え", amount: "1/2束"),
                 UsageInfo(day: "木", mealTime: "夜", mealName: "味噌汁", amount: "1/2束")
             ]),
-            ShoppingItem(name: "豆腐", category: "豆腐・納豆・卵・麺類", totalAmount: "1丁", usages: [
+            PlanShoppingItem(name: "豆腐", category: "豆腐・納豆・卵・麺類", totalAmount: "1丁", usages: [
                 UsageInfo(day: "月", mealTime: "夜", mealName: "麻婆豆腐", amount: "1丁")
             ]),
-            ShoppingItem(name: "白米", category: "米・穀物", totalAmount: "1kg", usages: [
+            PlanShoppingItem(name: "白米", category: "米・穀物", totalAmount: "1kg", usages: [
                 UsageInfo(day: "月", mealTime: "朝", mealName: "ご飯", amount: "150g"),
                 UsageInfo(day: "火", mealTime: "朝", mealName: "ご飯", amount: "150g"),
                 UsageInfo(day: "水", mealTime: "朝", mealName: "ご飯", amount: "150g")
@@ -55,7 +71,7 @@ struct ShoppingListWithPlanView: View {
 }
 
 private struct ShoppingPlanRow: View {
-    let item: ShoppingItem
+    let item: PlanShoppingItem
     let onToggle: () -> Void
 
     var body: some View {
