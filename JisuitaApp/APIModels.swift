@@ -26,6 +26,14 @@ struct ClaudeErrorBody: Codable {
     let message: String
 }
 
+struct Meal: Identifiable, Codable {
+    var id = UUID()
+    var day: String
+    var mealTime: String
+    var name: String
+    var memo: String = ""
+}
+
 /// 献立スロットの Single Source of Truth
 /// - MealPlanView / HomeView など全画面がこのモデルを参照する
 /// - `isCooking`: 自炊するか（false の場合は外食・テイクアウト扱い）
