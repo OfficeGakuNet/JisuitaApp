@@ -1,6 +1,6 @@
 import SwiftUI
 
-private struct PlanShoppingItem: Identifiable {
+struct PlanShoppingItem: Identifiable {
     var id = UUID()
     var name: String
     var category: String
@@ -9,7 +9,7 @@ private struct PlanShoppingItem: Identifiable {
     var isChecked: Bool = false
 }
 
-private struct UsageInfo {
+struct UsageInfo {
     var day: String
     var mealTime: String
     var mealName: String
