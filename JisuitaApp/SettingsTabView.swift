@@ -6,7 +6,6 @@ struct SettingsTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                familySection
                 budgetSection
                 dietarySection
                 menuSection
@@ -15,21 +14,6 @@ struct SettingsTabView: View {
             .listStyle(.insetGrouped)
             .navigationTitle("設定")
             .navigationBarTitleDisplayMode(.large)
-        }
-    }
-
-    private var familySection: some View {
-        Section {
-            NavigationLink(destination: FamilySettingView()) {
-                SettingsRow(
-                    icon: "person.2.fill",
-                    color: Color(hex: "1D9E75"),
-                    title: "家族構成",
-                    subtitle: userSettings.familySummary
-                )
-            }
-        } header: {
-            Text("家族・人数")
         }
     }
 
@@ -147,48 +131,6 @@ private struct SettingsRow: View {
             }
         }
         .padding(.vertical, 2)
-    }
-}
-
-// MARK: - FamilySettingView
-
-struct FamilySettingView: View {
-    @EnvironmentObject private var userSettings: UserSettings
-
-    var body: some View {
-        List {
-            Section {
-                Stepper(
-                    value: $userSettings.adultCount,
-                    in: 1...10
-                ) {
-                    HStack {
-                        Text("大人")
-                        Spacer()
-                        Text("\(userSettings.adultCount)人")
-                            .foregroundColor(.secondary)
-                    }
-                }
-                Stepper(
-                    value: $userSettings.childCount,
-                    in: 0...10
-                ) {
-                    HStack {
-                        Text("子ども")
-                        Spacer()
-                        Text("\(userSettings.childCount)人")
-                            .foregroundColor(.secondary)
-                    }
-                }
-            } header: {
-                Text("人数")
-            } footer: {
-                Text("設定した人数はAIによる食材量・献立の提案に反映されます。")
-            }
-        }
-        .listStyle(.insetGrouped)
-        .navigationTitle("家族構成")
-        .navigationBarTitleDisplayMode(.large)
     }
 }
 

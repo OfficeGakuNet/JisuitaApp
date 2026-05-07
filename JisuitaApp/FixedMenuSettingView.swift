@@ -62,6 +62,7 @@ struct FixedMenuSettingView: View {
             fixedMenus = [
                 FixedMenu(name: "ヨーグルト・バナナ", mealTime: "朝", days: ["月", "火", "水", "木", "金"], isEnabled: true)
             ]
+            save()
         }
     }
 }

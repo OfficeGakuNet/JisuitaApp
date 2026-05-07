@@ -28,8 +28,14 @@ final class MealPlanViewModel: ObservableObject {
     }
 
     private func applyFixedMenus() {
-        guard let data = UserDefaults.standard.data(forKey: "fixedMenus"),
-              let fixedMenus = try? JSONDecoder().decode([FixedMenu].self, from: data) else { return }
+        let fixedMenus: [FixedMenu]
+        if let data = UserDefaults.standard.data(forKey: "fixedMenus"),
+           let decoded = try? JSONDecoder().decode([FixedMenu].self, from: data), !decoded.isEmpty {
+            fixedMenus = decoded
+        } else {
+            fixedMenus = [FixedMenu(name: "ヨーグルト・バナナ", mealTime: "朝",
+                                    days: ["月", "火", "水", "木", "金"], isEnabled: true)]
+        }
         for i in slots.indices {
             let match = fixedMenus.first {
                 $0.isEnabled && $0.mealTime == slots[i].mealTime && $0.days.contains(slots[i].day)
@@ -44,6 +50,14 @@ final class MealPlanViewModel: ObservableObject {
             }
         }
         saveSlots()
+    }
+
+    func resetMealPlan() {
+        for i in slots.indices where !slots[i].isFixed {
+            slots[i].name = "未設定"
+            slots[i].isCooking = true
+        }
+        applyFixedMenus()
     }
 
     func slot(for day: String, mealTime: String) -> MealSlot? {

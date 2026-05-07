@@ -4,12 +4,6 @@ import Combine
 final class UserSettings: ObservableObject {
     static let shared = UserSettings()
 
-    @AppStorage("userSettings.adultCount") var adultCount: Int = 2 {
-        willSet { objectWillChange.send() }
-    }
-    @AppStorage("userSettings.childCount") var childCount: Int = 0 {
-        willSet { objectWillChange.send() }
-    }
     @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget: Int = AppDefaults.monthlyBudget {
         willSet { objectWillChange.send() }
     }
@@ -28,14 +22,6 @@ final class UserSettings: ObservableObject {
         loadDietaryRestrictions()
         loadDislikedFoods()
         loadFavoriteCuisines()
-    }
-
-    var totalPeople: Int { adultCount + childCount }
-
-    var familySummary: String {
-        var parts: [String] = ["大人\(adultCount)人"]
-        if childCount > 0 { parts.append("子ども\(childCount)人") }
-        return parts.joined(separator: "・")
     }
 
     var dietarySummary: String {
@@ -57,7 +43,6 @@ final class UserSettings: ObservableObject {
 
     var promptSupplement: String {
         var lines: [String] = []
-        lines.append("家族構成: 大人\(adultCount)人、子ども\(childCount)人")
         if !dietaryRestrictions.isEmpty {
             lines.append("食の制限: \(dietaryRestrictions.joined(separator: ", "))")
         }

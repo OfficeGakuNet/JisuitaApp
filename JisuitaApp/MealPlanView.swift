@@ -20,6 +20,15 @@ struct MealPlanView: View {
             .navigationTitle("週間献立")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        viewModel.resetMealPlan()
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise")
+                            .tint(Color(hex: "1D9E75"))
+                    }
+                    .disabled(viewModel.isLoading)
+                }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         Task { await generateMealPlan() }

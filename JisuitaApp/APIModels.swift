@@ -64,6 +64,17 @@ struct MealSlot: Identifiable, Codable {
         self.isFixed = isFixed
         self.memo = memo
     }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        day = try c.decode(String.self, forKey: .day)
+        mealTime = try c.decode(String.self, forKey: .mealTime)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? "未設定"
+        isCooking = try c.decodeIfPresent(Bool.self, forKey: .isCooking) ?? true
+        isFixed = try c.decodeIfPresent(Bool.self, forKey: .isFixed) ?? false
+        memo = try c.decodeIfPresent(String.self, forKey: .memo) ?? ""
+    }
 }
 
 enum APIError: LocalizedError {
