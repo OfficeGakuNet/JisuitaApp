@@ -105,7 +105,7 @@ struct MealPlanView: View {
                 .font(.caption)
                 .fontWeight(.semibold)
                 .foregroundColor(.secondary)
-            Text(settings.buildPersonalizedPromptContext())
+            Text(settings.promptSupplement)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .lineLimit(nil)
@@ -119,7 +119,7 @@ struct MealPlanView: View {
     }
 
     private func generateMealPlan() async {
-        let context = settings.buildPersonalizedPromptContext()
+        let context = settings.promptSupplement
         await viewModel.generateMealPlan(personalizedContext: context)
     }
 }

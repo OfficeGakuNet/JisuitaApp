@@ -19,10 +19,7 @@ struct HomeView: View {
             .navigationTitle("ホーム")
             .navigationBarTitleDisplayMode(.large)
         }
-        .onAppear {
-            budgetViewModel.resetIfNeeded()
-        }
-        .onChange(of: scenePhase) { _, newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .active {
                 budgetViewModel.resetIfNeeded()
             }
@@ -35,16 +32,8 @@ private struct BudgetSummaryCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("今月の食費")
-                    .font(.headline)
-                Spacer()
-                NavigationLink(destination: BudgetView(viewModel: viewModel)) {
-                    Text("詳細")
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: "1D9E75"))
-                }
-            }
+            Text("今月の食費")
+                .font(.headline)
 
             HStack(alignment: .bottom, spacing: 4) {
                 Text("¥\(viewModel.spentAmount.formatted())")
@@ -82,7 +71,7 @@ private struct MealPlanSummaryCard: View {
         let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
         let weekdayIndex = Calendar.current.component(.weekday, from: Date()) - 1
         let today = weekdays[weekdayIndex]
-        return mealPlanViewModel.mealSlots.filter { $0.day == today }
+        return mealPlanViewModel.slots.filter { $0.day == today }
     }
 
     var body: some View {
@@ -92,7 +81,7 @@ private struct MealPlanSummaryCard: View {
                     .font(.headline)
                 Spacer()
                 NavigationLink(destination: MealPlanView()) {
-                    Text("詳細")
+                    Text("週間献立へ")
                         .font(.subheadline)
                         .foregroundColor(Color(hex: "1D9E75"))
                 }
