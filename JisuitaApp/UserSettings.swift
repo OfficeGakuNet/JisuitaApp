@@ -1,81 +1,105 @@
-import Foundation
 import SwiftUI
 import Combine
 
 final class UserSettings: ObservableObject {
     static let shared = UserSettings()
 
-    private let dietaryRestrictionsKey = "dietaryRestrictions"
-    private let allergiesKey = "allergies"
-    private let cookingSkillKey = "cookingSkill"
-    private let preferredCuisinesKey = "preferredCuisines"
-    private let dislikedIngredientsKey = "dislikedIngredients"
-
-    @Published var dietaryRestrictions: [String] = [] {
-        didSet { save(dietaryRestrictions, forKey: dietaryRestrictionsKey) }
+    @AppStorage("userSettings.adultCount") var adultCount: Int = 2 {
+        willSet { objectWillChange.send() }
+    }
+    @AppStorage("userSettings.childCount") var childCount: Int = 0 {
+        willSet { objectWillChange.send() }
+    }
+    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget: Int = AppDefaults.monthlyBudget {
+        willSet { objectWillChange.send() }
     }
 
-    @Published var allergies: [String] = [] {
-        didSet { save(allergies, forKey: allergiesKey) }
+    @Published var dietaryRestrictions: Set<String> = [] {
+        didSet { saveDietaryRestrictions() }
     }
-
-    @Published var cookingSkill: String = "普通" {
-        didSet { UserDefaults.standard.set(cookingSkill, forKey: cookingSkillKey) }
+    @Published var dislikedFoods: [String] = [] {
+        didSet { saveDislikedFoods() }
     }
-
-    @Published var preferredCuisines: [String] = [] {
-        didSet { save(preferredCuisines, forKey: preferredCuisinesKey) }
+    @Published var favoriteCuisines: [String] = [] {
+        didSet { saveFavoriteCuisines() }
     }
-
-    @Published var dislikedIngredients: [String] = [] {
-        didSet { save(dislikedIngredients, forKey: dislikedIngredientsKey) }
-    }
-
-    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget = AppDefaults.monthlyBudget
 
     private init() {
-        dietaryRestrictions = load([String].self, forKey: dietaryRestrictionsKey) ?? []
-        allergies = load([String].self, forKey: allergiesKey) ?? []
-        cookingSkill = UserDefaults.standard.string(forKey: cookingSkillKey) ?? "普通"
-        preferredCuisines = load([String].self, forKey: preferredCuisinesKey) ?? []
-        dislikedIngredients = load([String].self, forKey: dislikedIngredientsKey) ?? []
+        loadDietaryRestrictions()
+        loadDislikedFoods()
+        loadFavoriteCuisines()
     }
 
-    private func save<T: Encodable>(_ value: T, forKey key: String) {
-        if let data = try? JSONEncoder().encode(value) {
-            UserDefaults.standard.set(data, forKey: key)
-        }
+    var totalPeople: Int { adultCount + childCount }
+
+    var familySummary: String {
+        var parts: [String] = ["大人\(adultCount)人"]
+        if childCount > 0 { parts.append("子ども\(childCount)人") }
+        return parts.joined(separator: "・")
     }
 
-    private func load<T: Decodable>(_ type: T.Type, forKey key: String) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(type, from: data)
+    var dietarySummary: String {
+        dietaryRestrictions.isEmpty ? "なし" : dietaryRestrictions.count == 1
+            ? dietaryRestrictions.first!
+            : "\(dietaryRestrictions.count)件設定中"
     }
 
-    var restrictionsSummary: String {
-        var parts: [String] = []
-        if !allergies.isEmpty { parts.append("アレルギー: " + allergies.joined(separator: "・")) }
-        if !dietaryRestrictions.isEmpty { parts.append(dietaryRestrictions.joined(separator: "・")) }
-        if !dislikedIngredients.isEmpty { parts.append("苦手食材: " + dislikedIngredients.joined(separator: "・")) }
-        return parts.isEmpty ? "なし" : parts.joined(separator: "、")
+    var dislikedFoodsSummary: String {
+        dislikedFoods.isEmpty ? "なし" : dislikedFoods.count == 1
+            ? dislikedFoods.first!
+            : "\(dislikedFoods.count)件登録済み"
     }
 
-    func buildPersonalizedPromptContext() -> String {
+    var favoriteCuisinesSummary: String {
+        favoriteCuisines.isEmpty ? "未設定" : favoriteCuisines.prefix(2).joined(separator: "・")
+            + (favoriteCuisines.count > 2 ? "他" : "")
+    }
+
+    var promptSupplement: String {
         var lines: [String] = []
-        lines.append("【月間食費予算】¥\(monthlyBudget.formatted())")
-        lines.append("【料理スキル】\(cookingSkill)")
-        if !preferredCuisines.isEmpty {
-            lines.append("【好みの料理ジャンル】" + preferredCuisines.joined(separator: "・"))
-        }
-        if !allergies.isEmpty {
-            lines.append("【アレルギー（必ず除外）】" + allergies.joined(separator: "・"))
-        }
+        lines.append("家族構成: 大人\(adultCount)人、子ども\(childCount)人")
         if !dietaryRestrictions.isEmpty {
-            lines.append("【食の制限】" + dietaryRestrictions.joined(separator: "・"))
+            lines.append("食の制限: \(dietaryRestrictions.joined(separator: ", "))")
         }
-        if !dislikedIngredients.isEmpty {
-            lines.append("【苦手な食材（できるだけ避ける）】" + dislikedIngredients.joined(separator: "・"))
+        if !dislikedFoods.isEmpty {
+            lines.append("苦手食材: \(dislikedFoods.joined(separator: ", "))")
+        }
+        if !favoriteCuisines.isEmpty {
+            lines.append("好きなジャンル: \(favoriteCuisines.joined(separator: ", "))")
         }
         return lines.joined(separator: "\n")
+    }
+
+    private func saveDietaryRestrictions() {
+        let data = (try? JSONEncoder().encode(Array(dietaryRestrictions))) ?? Data()
+        UserDefaults.standard.set(data, forKey: "userSettings.dietaryRestrictions")
+    }
+
+    private func loadDietaryRestrictions() {
+        guard let data = UserDefaults.standard.data(forKey: "userSettings.dietaryRestrictions"),
+              let array = try? JSONDecoder().decode([String].self, from: data) else { return }
+        dietaryRestrictions = Set(array)
+    }
+
+    private func saveDislikedFoods() {
+        let data = (try? JSONEncoder().encode(dislikedFoods)) ?? Data()
+        UserDefaults.standard.set(data, forKey: "userSettings.dislikedFoods")
+    }
+
+    private func loadDislikedFoods() {
+        guard let data = UserDefaults.standard.data(forKey: "userSettings.dislikedFoods"),
+              let array = try? JSONDecoder().decode([String].self, from: data) else { return }
+        dislikedFoods = array
+    }
+
+    private func saveFavoriteCuisines() {
+        let data = (try? JSONEncoder().encode(favoriteCuisines)) ?? Data()
+        UserDefaults.standard.set(data, forKey: "userSettings.favoriteCuisines")
+    }
+
+    private func loadFavoriteCuisines() {
+        guard let data = UserDefaults.standard.data(forKey: "userSettings.favoriteCuisines"),
+              let array = try? JSONDecoder().decode([String].self, from: data) else { return }
+        favoriteCuisines = array
     }
 }
