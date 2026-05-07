@@ -62,18 +62,18 @@ struct BudgetUpdateCompleteView: View {
                             .fontWeight(.semibold)
                     }
 
+                    ProgressView(value: budgetRatio)
+                        .tint(progressColor)
+
                     HStack {
                         Text("残り予算")
                             .font(.subheadline)
                         Spacer()
                         Text("¥\(remaining.formatted())")
                             .font(.subheadline)
+                            .fontWeight(.semibold)
                             .foregroundColor(progressColor)
                     }
-
-                    ProgressView(value: budgetRatio)
-                        .tint(progressColor)
-                        .padding(.top, 4)
                 }
             }
             .padding()
@@ -83,8 +83,10 @@ struct BudgetUpdateCompleteView: View {
 
             Spacer()
 
-            Button(action: { dismiss() }) {
-                Text("閉じる")
+            Button {
+                dismiss()
+            } label: {
+                Text("ホームに戻る")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
@@ -96,5 +98,6 @@ struct BudgetUpdateCompleteView: View {
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground))
+        .navigationBarBackButtonHidden(true)
     }
 }
