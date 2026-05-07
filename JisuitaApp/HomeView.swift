@@ -1,170 +1,146 @@
 import SwiftUI
 
 struct HomeView: View {
-    @AppStorage("monthlyBudget") private var monthlyBudget: Int = 30000
-    @AppStorage("spentAmount") private var spentAmount: Int = 0
-    @State private var todayMeals: [String] = []
-    @State private var isLoadingMeals = false
-    @State private var showExpiryAlert = false
-
-    private var remaining: Int { max(monthlyBudget - spentAmount, 0) }
-    private var budgetRatio: Double {
-        guard monthlyBudget > 0 else { return 0 }
-        return min(Double(spentAmount) / Double(monthlyBudget), 1.0)
-    }
-    private var progressColor: Color {
-        budgetRatio > 0.9 ? .red : budgetRatio > 0.7 ? .orange : Color(hex: "1D9E75")
-    }
+    @StateObject private var budgetViewModel = BudgetViewModel()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 16) {
-                    budgetCard
-                    todayMealCard
+                VStack(spacing: 20) {
+                    BudgetSummaryCard(viewModel: budgetViewModel)
+                    MealPlanSummaryCard()
+                    ExpiryAlertCard()
                 }
-                .padding(16)
+                .padding(.horizontal)
+                .padding(.vertical, 12)
             }
             .background(Color(.systemGroupedBackground))
             .navigationTitle("ホーム")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        showExpiryAlert = true
-                    } label: {
-                        Image(systemName: "bell.badge")
-                            .tint(Color(hex: "1D9E75"))
-                    }
-                }
+        }
+        .onAppear {
+            budgetViewModel.resetIfNeeded()
+        }
+        .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active {
+                budgetViewModel.resetIfNeeded()
             }
-            .sheet(isPresented: $showExpiryAlert) {
-                NavigationStack { ExpiryAlertView() }
-            }
-            .task { await loadTodayMeals() }
         }
     }
+}
 
-    private var budgetCard: some View {
+private struct BudgetSummaryCard: View {
+    @ObservedObject var viewModel: BudgetViewModel
+
+    var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("今月の食費")
                     .font(.headline)
                 Spacer()
+                NavigationLink(destination: BudgetView(viewModel: viewModel)) {
+                    Text("詳細")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "1D9E75"))
+                }
             }
 
-            HStack(alignment: .firstTextBaseline, spacing: 4) {
-                Text("¥\(remaining.formatted())")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-                    .foregroundColor(progressColor)
-                Text("残り")
+            HStack(alignment: .bottom, spacing: 4) {
+                Text("¥\(viewModel.spentAmount.formatted())")
+                    .font(.title)
+                    .fontWeight(.bold)
+                Text("/ ¥\(viewModel.monthlyBudget.formatted())")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
+                    .padding(.bottom, 2)
             }
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(Color(.systemFill))
-                        .frame(height: 8)
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(progressColor)
-                        .frame(width: geo.size.width * budgetRatio, height: 8)
-                }
-            }
-            .frame(height: 8)
+            ProgressView(value: viewModel.budgetRatio)
+                .tint(viewModel.progressColor)
 
             HStack {
-                Text("支出: ¥\(spentAmount.formatted())")
-                    .font(.caption).foregroundColor(.secondary)
+                Text("残り ¥\(viewModel.remaining.formatted())")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
                 Spacer()
-                Text("予算: ¥\(monthlyBudget.formatted())")
-                    .font(.caption).foregroundColor(.secondary)
+                Text(String(format: "%.0f%%", viewModel.budgetRatio * 100))
+                    .font(.subheadline)
+                    .foregroundColor(viewModel.progressColor)
             }
         }
         .padding()
         .background(Color(.secondarySystemGroupedBackground))
         .cornerRadius(12)
-    }
-
-    private var todayMealCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("今日のおすすめ献立")
-                    .font(.headline)
-                Spacer()
-                if isLoadingMeals {
-                    ProgressView().scaleEffect(0.8)
-                } else {
-                    Button {
-                        Task { await loadTodayMeals() }
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                            .tint(Color(hex: "1D9E75"))
-                    }
-                }
-            }
-
-            if isLoadingMeals {
-                HStack {
-                    Spacer()
-                    VStack(spacing: 8) {
-                        ProgressView()
-                        Text("AIが考えています…")
-                            .font(.caption).foregroundColor(.secondary)
-                    }
-                    Spacer()
-                }
-                .padding()
-            } else {
-                let labels = ["朝", "昼", "夜"]
-                ForEach(Array(todayMeals.enumerated()), id: \.offset) { i, meal in
-                    HStack(spacing: 12) {
-                        Text(i < labels.count ? labels[i] : "")
-                            .font(.caption).fontWeight(.semibold)
-                            .foregroundColor(.white)
-                            .frame(width: 24).padding(.vertical, 2)
-                            .background(Color(hex: "1D9E75")).cornerRadius(4)
-                        Text(meal).font(.subheadline)
-                    }
-                }
-            }
-        }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-    }
-
-    private func loadTodayMeals() async {
-        isLoadingMeals = true
-        defer { isLoadingMeals = false }
-        let avoidFoods = UserDefaults.standard.string(forKey: "avoidFoods") ?? "なし"
-        do {
-            let response = try await ClaudeAPIClient.shared.send(
-                systemPrompt: "あなたは家庭料理の献立アドバイザーです。JSONのみ返してください。",
-                userMessage: """
-                一人暮らしの今日の朝・昼・夜の献立を提案してください。
-                苦手食材：\(avoidFoods)
-                JSON形式のみで返答：{"meals": ["朝食名", "昼食名", "夕食名"]}
-                """
-            )
-            let clean = response
-                .replacingOccurrences(of: "```json", with: "")
-                .replacingOccurrences(of: "```", with: "")
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            if let data = clean.data(using: .utf8),
-               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let meals = json["meals"] as? [String] {
-                todayMeals = meals
-            } else {
-                todayMeals = ["ご飯・味噌汁", "うどん", "焼き魚定食"]
-            }
-        } catch {
-            todayMeals = ["ご飯・味噌汁", "うどん", "焼き魚定食"]
-        }
     }
 }
 
-#Preview {
-    HomeView()
+private struct MealPlanSummaryCard: View {
+    @EnvironmentObject private var mealPlanViewModel: MealPlanViewModel
+
+    private var todaySlots: [MealSlot] {
+        let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
+        let weekdayIndex = Calendar.current.component(.weekday, from: Date()) - 1
+        let today = weekdays[weekdayIndex]
+        return mealPlanViewModel.mealSlots.filter { $0.day == today }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("今日の献立")
+                    .font(.headline)
+                Spacer()
+                NavigationLink(destination: MealPlanView()) {
+                    Text("詳細")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "1D9E75"))
+                }
+            }
+
+            if todaySlots.isEmpty {
+                Text("献立が設定されていません")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+            } else {
+                ForEach(todaySlots) { slot in
+                    HStack {
+                        Text(slot.mealTime)
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .frame(width: 32, alignment: .leading)
+                        Text(slot.name)
+                            .font(.subheadline)
+                    }
+                }
+            }
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
+}
+
+private struct ExpiryAlertCard: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("賞味期限アラート")
+                    .font(.headline)
+                Spacer()
+                NavigationLink(destination: ExpiryAlertView()) {
+                    Text("詳細")
+                        .font(.subheadline)
+                        .foregroundColor(Color(hex: "1D9E75"))
+                }
+            }
+
+            Text("期限の近い食材を確認しましょう")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+        }
+        .padding()
+        .background(Color(.secondarySystemGroupedBackground))
+        .cornerRadius(12)
+    }
 }

@@ -31,9 +31,8 @@ final class BudgetViewModel: ObservableObject {
         spentAmount += amount
     }
 
-    private func resetIfNeeded() {
-        let now = Date()
-        let currentMonth = monthKey(for: now)
+    func resetIfNeeded() {
+        let currentMonth = monthKey(for: Date())
         if resetMonth != currentMonth {
             spentAmount = AppDefaults.spentAmount
             resetMonth = currentMonth
@@ -42,6 +41,6 @@ final class BudgetViewModel: ObservableObject {
 
     private func monthKey(for date: Date) -> String {
         let comps = calendar.dateComponents([.year, .month], from: date)
-        return "\(comps.year ?? 0)-\(comps.month ?? 0)"
+        return String(format: "%04d-%02d", comps.year ?? 0, comps.month ?? 0)
     }
 }
