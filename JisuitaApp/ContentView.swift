@@ -75,7 +75,7 @@ struct ShoppingTabView: View {
                 .background(Color(.systemGroupedBackground))
 
                 if selectedPage == 0 {
-                    ShoppingListView()
+                    ShoppingListWithPlanView()
                         .transition(.opacity)
                 } else {
                     IngredientTrackerView()
