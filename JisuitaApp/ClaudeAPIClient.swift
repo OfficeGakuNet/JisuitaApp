@@ -7,7 +7,7 @@
 
 import Foundation
 
-class ClaudeAPIClient {
+class ClaudeAPIClient: ClaudeAPIClientProtocol {
 
     static let shared = ClaudeAPIClient()
 
