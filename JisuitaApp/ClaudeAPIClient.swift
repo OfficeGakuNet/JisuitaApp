@@ -32,7 +32,12 @@ class ClaudeAPIClient {
                 ["role": "user", "content": userMessage]
             ]
         ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+        } catch {
+            throw APIError.decodeError
+        }
 
         let data: Data
         let response: URLResponse
