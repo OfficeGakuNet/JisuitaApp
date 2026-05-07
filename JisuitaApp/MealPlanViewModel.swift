@@ -20,6 +20,30 @@ final class MealPlanViewModel: ObservableObject {
         } else {
             slots = defaultSlots()
         }
+        applyFixedMenus()
+    }
+
+    func reloadFixedMenus() {
+        applyFixedMenus()
+    }
+
+    private func applyFixedMenus() {
+        guard let data = UserDefaults.standard.data(forKey: "fixedMenus"),
+              let fixedMenus = try? JSONDecoder().decode([FixedMenu].self, from: data) else { return }
+        for i in slots.indices {
+            let match = fixedMenus.first {
+                $0.isEnabled && $0.mealTime == slots[i].mealTime && $0.days.contains(slots[i].day)
+            }
+            if let fixed = match {
+                slots[i].name = fixed.name
+                slots[i].isFixed = true
+                slots[i].isCooking = true
+            } else if slots[i].isFixed {
+                slots[i].name = "未設定"
+                slots[i].isFixed = false
+            }
+        }
+        saveSlots()
     }
 
     func slot(for day: String, mealTime: String) -> MealSlot? {
@@ -37,19 +61,23 @@ final class MealPlanViewModel: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
 
+        let targetSlots = slots.filter { $0.isCooking && !$0.isFixed }
+        guard !targetSlots.isEmpty else { isLoading = false; return }
+        let slotList = targetSlots.map { "\($0.day)\($0.mealTime)" }.joined(separator: "、")
+
         let systemPrompt = """
         あなたは家庭料理の献立プランナーです。
         以下のJSON形式のみで返答してください（他のテキスト不要）：
         {"slots": [{"day": "月", "mealTime": "朝", "name": "料理名"}, ...]}
-        曜日は月火水木金土日、食事時間は朝昼夜の組み合わせで21件すべてを含めてください。
         """
 
         let userMessage = """
-        以下の条件で週間献立を提案してください。
+        以下の条件で、指定されたスロットのみ献立を提案してください。
 
         \(personalizedContext)
 
-        21件すべての献立をJSON形式で返してください。
+        提案対象スロット：\(slotList)
+        対象スロット数：\(targetSlots.count)件のみJSON形式で返してください。
         """
 
         do {
@@ -59,7 +87,11 @@ final class MealPlanViewModel: ObservableObject {
             )
             let newSlots = parseSlotsFromJSON(response)
             if !newSlots.isEmpty {
-                slots = newSlots
+                for new in newSlots {
+                    if let index = slots.firstIndex(where: { $0.day == new.day && $0.mealTime == new.mealTime && !$0.isFixed }) {
+                        slots[index].name = new.name
+                    }
+                }
                 saveSlots()
             } else {
                 errorMessage = "献立の解析に失敗しました。再試行してください。"

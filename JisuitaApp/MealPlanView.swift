@@ -35,6 +35,9 @@ struct MealPlanView: View {
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }
+            .onAppear {
+                viewModel.reloadFixedMenus()
+            }
         }
     }
 
@@ -92,7 +95,9 @@ struct MealPlanView: View {
             ForEach(days, id: \.self) { day in
                 let slot = viewModel.slot(for: day, mealTime: mealTime)
                 MealCellView(slot: slot) {
-                    viewModel.toggleCooking(for: day, mealTime: mealTime)
+                    if slot?.isFixed == false {
+                        viewModel.toggleCooking(for: day, mealTime: mealTime)
+                    }
                 }
             }
         }
@@ -131,6 +136,11 @@ struct MealCellView: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 2) {
+                if slot?.isFixed == true {
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 7))
+                        .foregroundColor(Color(hex: "1D9E75"))
+                }
                 Text(slot?.name ?? "未設定")
                     .font(.system(size: 9))
                     .lineLimit(2)
@@ -141,9 +151,11 @@ struct MealCellView: View {
             .padding(4)
             .background(
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(slot?.isCooking == false
-                          ? Color(.systemFill)
-                          : Color(hex: "1D9E75").opacity(0.08))
+                    .fill(slot?.isFixed == true
+                          ? Color(hex: "1D9E75").opacity(0.15)
+                          : slot?.isCooking == false
+                            ? Color(.systemFill)
+                            : Color(hex: "1D9E75").opacity(0.08))
             )
         }
         .buttonStyle(.plain)

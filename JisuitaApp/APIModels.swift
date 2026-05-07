@@ -44,6 +44,7 @@ struct MealSlot: Identifiable, Codable {
     var mealTime: String
     var name: String
     var isCooking: Bool
+    var isFixed: Bool
     var memo: String
 
     init(
@@ -52,6 +53,7 @@ struct MealSlot: Identifiable, Codable {
         mealTime: String,
         name: String = "未設定",
         isCooking: Bool = true,
+        isFixed: Bool = false,
         memo: String = ""
     ) {
         self.id = id
@@ -59,6 +61,7 @@ struct MealSlot: Identifiable, Codable {
         self.mealTime = mealTime
         self.name = name
         self.isCooking = isCooking
+        self.isFixed = isFixed
         self.memo = memo
     }
 }
