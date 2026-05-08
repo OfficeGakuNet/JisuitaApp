@@ -1,4 +1,20 @@
 import SwiftUI
+import Combine
+
+// MARK: - Models
+
+struct Recipe: Codable {
+    var ingredients: [Ingredient]
+    var steps: [String]
+    var calories: Int
+    var cookingTime: Int
+}
+
+struct Ingredient: Identifiable, Codable {
+    var id = UUID()
+    var name: String
+    var amount: String
+}
 
 // MARK: - RecipeViewModel
 
