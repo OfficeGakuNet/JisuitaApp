@@ -6,15 +6,8 @@ struct PlanShoppingItem: Identifiable {
     var name: String
     var category: String
     var totalAmount: String
-    var usages: [UsageInfo]
+    var meals: String
     var isChecked: Bool = false
-}
-
-struct UsageInfo {
-    var day: String
-    var mealTime: String
-    var mealName: String
-    var amount: String
 }
 
 @MainActor
@@ -39,13 +32,13 @@ final class ShoppingListViewModel: ObservableObject {
 
         let systemPrompt = """
         あなたは食材管理の専門家です。以下のJSON形式のみで返答してください（他のテキスト不要）：
-        {"items": [{"name": "食材名", "category": "カテゴリ", "totalAmount": "合計量", "usages": [{"day": "月", "mealTime": "夜", "mealName": "料理名", "amount": "使用量"}]}]}
+        {"items": [{"name": "食材名", "category": "カテゴリ", "totalAmount": "合計量", "meals": "使用料理名（カンマ区切り）"}]}
         カテゴリは「米・穀物」「野菜」「豆腐・納豆・卵・麺類」「魚」「肉」「その他」のいずれかを使用してください。
         """
 
         let userMessage = """
         以下の献立（一人暮らし用）から今週の買い出しリストを作成してください。
-        同じ食材は重複を排除して合算し、どの料理で使うかも記載してください。
+        同じ食材は重複を排除して合算してください。
 
         献立：
         \(mealList)
@@ -102,16 +95,9 @@ final class ShoppingListViewModel: ObservableObject {
                 } else {
                     totalAmount = ""
                 }
-                let usagesAny = (dict["usages"] as? [[String: Any]]) ?? []
-                let usages = usagesAny.compactMap { u -> UsageInfo? in
-                    guard let day = u["day"] as? String,
-                          let mealTime = u["mealTime"] as? String,
-                          let mealName = u["mealName"] as? String else { return nil }
-                    return UsageInfo(day: day, mealTime: mealTime, mealName: mealName,
-                                    amount: u["amount"] as? String ?? "")
-                }
+                let meals = dict["meals"] as? String ?? ""
                 return PlanShoppingItem(name: name, category: category,
-                                        totalAmount: totalAmount, usages: usages)
+                                        totalAmount: totalAmount, meals: meals)
             }
             return result.isEmpty
                 ? ([], "アイテム0件（元のitems数: \(itemsArray.count)）")
@@ -223,16 +209,12 @@ private struct ShoppingPlanRow: View {
                     .font(.subheadline)
             }
 
-            ForEach(item.usages, id: \.mealName) { usage in
+            if !item.meals.isEmpty {
                 HStack(spacing: 4) {
-                    Image(systemName: "arrow.right")
+                    Image(systemName: "fork.knife")
                         .font(.caption2)
                         .foregroundColor(Color(hex: "1D9E75"))
-                    Text("\(usage.day) \(usage.mealTime) · \(usage.mealName)")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(usage.amount)
+                    Text(item.meals)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
