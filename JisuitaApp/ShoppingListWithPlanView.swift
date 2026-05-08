@@ -58,7 +58,8 @@ final class ShoppingListViewModel: ObservableObject {
             )
             let parsed = parseItems(from: response)
             if parsed.isEmpty {
-                errorMessage = "食材リストの解析に失敗しました。再試行してください。"
+                let preview = String(response.prefix(300))
+                errorMessage = "解析失敗。レスポンス先頭:\n\(preview)"
             } else {
                 items = parsed
                 hasGenerated = true
