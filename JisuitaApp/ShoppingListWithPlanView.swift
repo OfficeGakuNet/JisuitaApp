@@ -56,10 +56,9 @@ final class ShoppingListViewModel: ObservableObject {
                 systemPrompt: systemPrompt,
                 userMessage: userMessage
             )
-            let parsed = parseItems(from: response)
+            let (parsed, parseError) = parseItems(from: response)
             if parsed.isEmpty {
-                let preview = String(response.prefix(300))
-                errorMessage = "解析失敗。レスポンス先頭:\n\(preview)"
+                errorMessage = parseError ?? "食材リストの解析に失敗しました。再試行してください。"
             } else {
                 items = parsed
                 hasGenerated = true
@@ -74,33 +73,52 @@ final class ShoppingListViewModel: ObservableObject {
         items[idx].isChecked.toggle()
     }
 
-    private func parseItems(from text: String) -> [PlanShoppingItem] {
+    private func parseItems(from text: String) -> ([PlanShoppingItem], String?) {
         let stripped = text
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        // レスポンス内の最初の { から最後の } までを切り出す
         guard let startIdx = stripped.firstIndex(of: "{"),
-              let endIdx = stripped.lastIndex(of: "}") else { return [] }
+              let endIdx = stripped.lastIndex(of: "}") else {
+            return ([], "JSONブロックが見つかりません")
+        }
         let jsonString = String(stripped[startIdx...endIdx])
-        guard let data = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let itemsArray = json["items"] as? [[String: Any]] else { return [] }
-        return itemsArray.compactMap { dict in
-            guard let name = dict["name"] as? String,
-                  let category = dict["category"] as? String,
-                  let totalAmount = dict["totalAmount"] as? String,
-                  let usagesArray = dict["usages"] as? [[String: Any]] else { return nil }
-            let usages = usagesArray.compactMap { u -> UsageInfo? in
-                guard let day = u["day"] as? String,
-                      let mealTime = u["mealTime"] as? String,
-                      let mealName = u["mealName"] as? String,
-                      let amount = u["amount"] as? String else { return nil }
-                return UsageInfo(day: day, mealTime: mealTime, mealName: mealName, amount: amount)
+        guard let data = jsonString.data(using: .utf8) else {
+            return ([], "UTF-8エンコード失敗")
+        }
+        do {
+            let decoded = try JSONDecoder().decode(AIShoppingResponse.self, from: data)
+            let result = decoded.items.map { item in
+                PlanShoppingItem(
+                    name: item.name,
+                    category: item.category,
+                    totalAmount: item.totalAmount,
+                    usages: item.usages.map {
+                        UsageInfo(day: $0.day, mealTime: $0.mealTime, mealName: $0.mealName, amount: $0.amount)
+                    }
+                )
             }
-            return PlanShoppingItem(name: name, category: category, totalAmount: totalAmount, usages: usages)
+            return (result, nil)
+        } catch {
+            return ([], error.localizedDescription)
         }
     }
+}
+
+private struct AIShoppingResponse: Decodable {
+    let items: [AIShoppingItem]
+}
+private struct AIShoppingItem: Decodable {
+    let name: String
+    let category: String
+    let totalAmount: String
+    let usages: [AIUsage]
+}
+private struct AIUsage: Decodable {
+    let day: String
+    let mealTime: String
+    let mealName: String
+    let amount: String
 }
 
 struct ShoppingListWithPlanView: View {
