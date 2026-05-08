@@ -12,18 +12,19 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
     static let shared = ClaudeAPIClient()
 
     private let apiKey: String = Secrets.claudeAPIKey
-
     private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
     private let model = "claude-sonnet-4-6"
     private let maxTokens = 4096
+    private let timeoutInterval: TimeInterval = 30
+    private let maxRetryCount = 3
+    private let baseRetryDelay: TimeInterval = 1.0
 
     func send(systemPrompt: String, userMessage: String) async throws -> String {
-        var request = URLRequest(url: endpoint)
-        request.httpMethod = "POST"
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        let requestBody = try buildRequestBody(systemPrompt: systemPrompt, userMessage: userMessage)
+        return try await sendWithRetry(body: requestBody)
+    }
 
+    private func buildRequestBody(systemPrompt: String, userMessage: String) throws -> Data {
         let body: [String: Any] = [
             "model": model,
             "max_tokens": maxTokens,
@@ -32,12 +33,25 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
                 ["role": "user", "content": userMessage]
             ]
         ]
-
         do {
-            request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
+            return try JSONSerialization.data(withJSONObject: body, options: [])
         } catch {
             throw APIError.decodeError
         }
+    }
+
+    private func buildRequest(body: Data) -> URLRequest {
+        var request = URLRequest(url: endpoint, timeoutInterval: timeoutInterval)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.httpBody = body
+        return request
+    }
+
+    private func sendWithRetry(body: Data, attempt: Int = 0) async throws -> String {
+        let request = buildRequest(body: body)
 
         let data: Data
         let response: URLResponse
@@ -45,13 +59,26 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
         do {
             (data, response) = try await URLSession.shared.data(for: request)
         } catch let urlError as URLError {
-            throw APIError.network(urlError)
+            let apiError = APIError.network(urlError)
+            if apiError.isRetryable && attempt < maxRetryCount {
+                try await exponentialBackoffDelay(attempt: attempt)
+                return try await sendWithRetry(body: body, attempt: attempt + 1)
+            }
+            throw apiError
         } catch {
             throw APIError.unknown
         }
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.unknown
+        }
+
+        if httpResponse.statusCode == 429 {
+            if attempt < maxRetryCount {
+                try await exponentialBackoffDelay(attempt: attempt)
+                return try await sendWithRetry(body: body, attempt: attempt + 1)
+            }
+            throw APIError.rateLimitExceeded
         }
 
         let decoded: ClaudeResponse
@@ -66,7 +93,7 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
         }
 
         guard httpResponse.statusCode == 200 else {
-            throw APIError.apiError("HTTPエラー: \(httpResponse.statusCode)")
+            throw APIError.apiError("HTTP \(httpResponse.statusCode)")
         }
 
         guard let text = decoded.content?.first(where: { $0.type == "text" })?.text else {
@@ -74,5 +101,10 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
         }
 
         return text
+    }
+
+    private func exponentialBackoffDelay(attempt: Int) async throws {
+        let delay = baseRetryDelay * pow(2.0, Double(attempt))
+        try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
     }
 }
