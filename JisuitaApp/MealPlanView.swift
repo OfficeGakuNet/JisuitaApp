@@ -1,8 +1,15 @@
 import SwiftUI
 
+private struct SelectedMealSlot: Identifiable {
+    let id = UUID()
+    let day: String
+    let mealTime: String
+}
+
 struct MealPlanView: View {
     @EnvironmentObject private var viewModel: MealPlanViewModel
     @EnvironmentObject private var settings: UserSettings
+    @State private var selectedSlot: SelectedMealSlot?
 
     private let days = ["月", "火", "水", "木", "金", "土", "日"]
     private let mealTimes = ["朝", "昼", "夜"]
@@ -46,6 +53,10 @@ struct MealPlanView: View {
             }
             .onAppear {
                 viewModel.reloadFixedMenus()
+            }
+            .sheet(item: $selectedSlot) { sel in
+                MealDetailView(day: sel.day, mealTime: sel.mealTime)
+                    .environmentObject(viewModel)
             }
         }
     }
@@ -104,9 +115,7 @@ struct MealPlanView: View {
             ForEach(days, id: \.self) { day in
                 let slot = viewModel.slot(for: day, mealTime: mealTime)
                 MealCellView(slot: slot) {
-                    if slot?.isFixed == false {
-                        viewModel.toggleCooking(for: day, mealTime: mealTime)
-                    }
+                    selectedSlot = SelectedMealSlot(day: day, mealTime: mealTime)
                 }
             }
         }
