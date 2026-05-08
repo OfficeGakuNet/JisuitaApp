@@ -1,11 +1,10 @@
 import SwiftUI
 import Combine
 
-@MainActor
 final class BudgetViewModel: ObservableObject {
-    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget = AppDefaults.monthlyBudget
-    @AppStorage(AppDefaults.spentAmountKey) var spentAmount = AppDefaults.spentAmount
-    @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth = ""
+    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget: Int = AppDefaults.monthlyBudget
+    @AppStorage(AppDefaults.spentAmountKey) var spentAmount: Int = AppDefaults.spentAmount
+    @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth: String = ""
 
     private let calendar = Calendar.current
 
