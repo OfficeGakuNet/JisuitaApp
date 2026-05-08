@@ -87,38 +87,39 @@ final class ShoppingListViewModel: ObservableObject {
             return ([], "UTF-8エンコード失敗")
         }
         do {
-            let decoded = try JSONDecoder().decode(AIShoppingResponse.self, from: data)
-            let result = decoded.items.map { item in
-                PlanShoppingItem(
-                    name: item.name,
-                    category: item.category,
-                    totalAmount: item.totalAmount,
-                    usages: item.usages.map {
-                        UsageInfo(day: $0.day, mealTime: $0.mealTime, mealName: $0.mealName, amount: $0.amount)
-                    }
-                )
+            guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let itemsArray = root["items"] as? [[String: Any]] else {
+                return ([], "itemsキーが見つかりません")
             }
-            return (result, nil)
+            let result = itemsArray.compactMap { dict -> PlanShoppingItem? in
+                guard let name = dict["name"] as? String else { return nil }
+                let category = dict["category"] as? String ?? "その他"
+                let totalAmount: String
+                if let s = dict["totalAmount"] as? String {
+                    totalAmount = s
+                } else if let n = dict["totalAmount"] as? NSNumber {
+                    totalAmount = n.stringValue
+                } else {
+                    totalAmount = ""
+                }
+                let usagesAny = (dict["usages"] as? [[String: Any]]) ?? []
+                let usages = usagesAny.compactMap { u -> UsageInfo? in
+                    guard let day = u["day"] as? String,
+                          let mealTime = u["mealTime"] as? String,
+                          let mealName = u["mealName"] as? String else { return nil }
+                    return UsageInfo(day: day, mealTime: mealTime, mealName: mealName,
+                                    amount: u["amount"] as? String ?? "")
+                }
+                return PlanShoppingItem(name: name, category: category,
+                                        totalAmount: totalAmount, usages: usages)
+            }
+            return result.isEmpty
+                ? ([], "アイテム0件（元のitems数: \(itemsArray.count)）")
+                : (result, nil)
         } catch {
-            return ([], error.localizedDescription)
+            return ([], "JSON解析エラー: \(error.localizedDescription)")
         }
     }
-}
-
-private struct AIShoppingResponse: Decodable {
-    let items: [AIShoppingItem]
-}
-private struct AIShoppingItem: Decodable {
-    let name: String
-    let category: String
-    let totalAmount: String
-    let usages: [AIUsage]
-}
-private struct AIUsage: Decodable {
-    let day: String
-    let mealTime: String
-    let mealName: String
-    let amount: String
 }
 
 struct ShoppingListWithPlanView: View {
