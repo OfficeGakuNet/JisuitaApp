@@ -74,11 +74,15 @@ final class ShoppingListViewModel: ObservableObject {
     }
 
     private func parseItems(from text: String) -> [PlanShoppingItem] {
-        let clean = text
+        let stripped = text
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = clean.data(using: .utf8),
+        // レスポンス内の最初の { から最後の } までを切り出す
+        guard let startIdx = stripped.firstIndex(of: "{"),
+              let endIdx = stripped.lastIndex(of: "}") else { return [] }
+        let jsonString = String(stripped[startIdx...endIdx])
+        guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let itemsArray = json["items"] as? [[String: Any]] else { return [] }
         return itemsArray.compactMap { dict in

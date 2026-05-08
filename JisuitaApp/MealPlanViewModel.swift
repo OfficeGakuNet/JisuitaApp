@@ -116,11 +116,14 @@ final class MealPlanViewModel: ObservableObject {
     }
 
     private func parseSlotsFromJSON(_ text: String) -> [MealSlot] {
-        let clean = text
+        let stripped = text
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let data = clean.data(using: .utf8),
+        guard let startIdx = stripped.firstIndex(of: "{"),
+              let endIdx = stripped.lastIndex(of: "}") else { return [] }
+        let jsonString = String(stripped[startIdx...endIdx])
+        guard let data = jsonString.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let slotsArray = json["slots"] as? [[String: Any]] else { return [] }
         return slotsArray.compactMap { dict in
