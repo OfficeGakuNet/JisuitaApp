@@ -66,7 +66,7 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
         }
 
         guard httpResponse.statusCode == 200 else {
-            throw APIError.apiError("HTTPエラー: \(httpResponse.statusCode)")
+            throw APIError.apiError("HTTPステータスコード: \(httpResponse.statusCode)")
         }
 
         guard let text = decoded.content?.first(where: { $0.type == "text" })?.text else {
