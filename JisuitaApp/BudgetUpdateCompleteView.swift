@@ -9,6 +9,7 @@ struct BudgetUpdateCompleteView: View {
     private var budgetRatio: Double { viewModel.budgetRatio }
     private var remaining: Int { viewModel.remaining }
     private var progressColor: Color { viewModel.progressColor }
+    private var isOverBudget: Bool { viewModel.spentAmount > viewModel.monthlyBudget }
 
     var body: some View {
         VStack(spacing: 32) {
@@ -59,20 +60,22 @@ struct BudgetUpdateCompleteView: View {
                         Spacer()
                         Text("¥\(newSpent.formatted())")
                             .font(.subheadline)
-                            .fontWeight(.semibold)
+                            .foregroundColor(.secondary)
                     }
 
                     ProgressView(value: budgetRatio)
                         .tint(progressColor)
+                        .padding(.vertical, 4)
 
                     HStack {
                         Text("残り予算")
                             .font(.subheadline)
+                            .foregroundColor(.secondary)
                         Spacer()
-                        Text("¥\(remaining.formatted())")
+                        Text(isOverBudget ? "超過" : "¥\(remaining.formatted())")
                             .font(.subheadline)
                             .fontWeight(.semibold)
-                            .foregroundColor(progressColor)
+                            .foregroundColor(isOverBudget ? .red : progressColor)
                     }
                 }
             }
@@ -81,23 +84,36 @@ struct BudgetUpdateCompleteView: View {
             .cornerRadius(12)
             .padding(.horizontal)
 
+            if isOverBudget {
+                HStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    Text("今月の食費予算を超過しています")
+                        .font(.subheadline)
+                        .foregroundColor(.red)
+                }
+                .padding(.horizontal)
+            }
+
             Spacer()
 
             Button {
                 dismiss()
             } label: {
-                Text("ホームに戻る")
+                Text("閉じる")
                     .fontWeight(.semibold)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color(hex: "1D9E75"))
-                    .foregroundColor(.white)
                     .cornerRadius(12)
             }
             .padding(.horizontal)
             .padding(.bottom, 32)
         }
         .background(Color(.systemGroupedBackground))
-        .navigationBarBackButtonHidden(true)
+        .onAppear {
+            viewModel.addSpending(addedAmount)
+        }
     }
 }
