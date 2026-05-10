@@ -1,135 +1,216 @@
+//
+//  HomeView.swift
+//  JisuitaApp
+//
+//  Created by 株式会社オフィス岳 on 2026/04/10.
+//
+
 import SwiftUI
 
 struct HomeView: View {
+
+    @EnvironmentObject private var mealPlanViewModel: MealPlanViewModel
+    @EnvironmentObject private var userSettings: UserSettings
     @StateObject private var budgetViewModel = BudgetViewModel()
-    @Environment(\.scenePhase) private var scenePhase
+    @State private var showErrorAlert = false
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                VStack(spacing: 20) {
-                    BudgetSummaryCard(viewModel: budgetViewModel)
-                    MealPlanSummaryCard()
-                    ExpiryAlertCard()
+            ZStack {
+                Color(.systemGroupedBackground)
+                    .ignoresSafeArea()
+
+                ScrollView {
+                    VStack(spacing: 16) {
+                        greetingSection
+                        todayMealSection
+                        budgetSection
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
-                .padding(.horizontal)
-                .padding(.vertical, 12)
             }
-            .background(Color(.systemGroupedBackground))
             .navigationTitle("ホーム")
             .navigationBarTitleDisplayMode(.large)
-        }
-        .onChange(of: scenePhase) {
-            if scenePhase == .active {
-                budgetViewModel.resetIfNeeded()
+            .alert("エラー", isPresented: $showErrorAlert) {
+                Button("OK", role: .cancel) { mealPlanViewModel.errorMessage = nil }
+            } message: {
+                Text(mealPlanViewModel.errorMessage ?? "")
+            }
+            .onChange(of: mealPlanViewModel.errorMessage) { msg in
+                showErrorAlert = msg != nil
             }
         }
     }
-}
 
-private struct BudgetSummaryCard: View {
-    @ObservedObject var viewModel: BudgetViewModel
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("今月の食費")
-                .font(.headline)
-
-            HStack(alignment: .bottom, spacing: 4) {
-                Text("¥\(viewModel.spentAmount.formatted())")
-                    .font(.title)
+    private var greetingSection: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(greetingText)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text(userSettings.userName.isEmpty ? "こんにちは！" : "\(userSettings.userName)さん")
+                    .font(.title2)
                     .fontWeight(.bold)
-                Text("/ ¥\(viewModel.monthlyBudget.formatted())")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .padding(.bottom, 2)
             }
-
-            ProgressView(value: viewModel.budgetRatio)
-                .tint(viewModel.progressColor)
-
-            HStack {
-                Text("残り ¥\(viewModel.remaining.formatted())")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                Spacer()
-                Text(String(format: "%.0f%%", viewModel.budgetRatio * 100))
-                    .font(.subheadline)
-                    .foregroundColor(viewModel.progressColor)
-            }
+            Spacer()
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
-    }
-}
-
-private struct MealPlanSummaryCard: View {
-    @EnvironmentObject private var mealPlanViewModel: MealPlanViewModel
-
-    private var todaySlots: [MealSlot] {
-        let weekdays = ["日", "月", "火", "水", "木", "金", "土"]
-        let weekdayIndex = Calendar.current.component(.weekday, from: Date()) - 1
-        let today = weekdays[weekdayIndex]
-        return mealPlanViewModel.slots.filter { $0.day == today }
+        .padding(.top, 4)
     }
 
-    var body: some View {
+    private var todayMealSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("今日の献立")
                     .font(.headline)
                 Spacer()
-                NavigationLink(destination: MealPlanView()) {
-                    Text("週間献立へ")
-                        .font(.subheadline)
+                if mealPlanViewModel.isLoading {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                        .tint(Color(hex: "1D9E75"))
+                } else {
+                    Button {
+                        Task {
+                            await mealPlanViewModel.fetchAISuggestion(userSettings: userSettings)
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "sparkles")
+                                .font(.caption)
+                            Text("AI提案")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                        }
                         .foregroundColor(Color(hex: "1D9E75"))
-                }
-            }
-
-            if todaySlots.isEmpty {
-                Text("献立が設定されていません")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            } else {
-                ForEach(todaySlots) { slot in
-                    HStack {
-                        Text(slot.mealTime)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .frame(width: 32, alignment: .leading)
-                        Text(slot.name)
-                            .font(.subheadline)
                     }
                 }
             }
+
+            if mealPlanViewModel.todaySlots.isEmpty {
+                emptyMealView
+            } else {
+                VStack(spacing: 0) {
+                    ForEach(Array(mealPlanViewModel.todaySlots.enumerated()), id: \.element.id) { index, slot in
+                        HomeMealRow(slot: slot)
+                        if index < mealPlanViewModel.todaySlots.count - 1 {
+                            Divider()
+                                .padding(.horizontal, 16)
+                        }
+                    }
+                }
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(14)
+            }
         }
-        .padding()
+    }
+
+    private var emptyMealView: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "fork.knife")
+                .font(.system(size: 32))
+                .foregroundColor(Color(hex: "1D9E75").opacity(0.5))
+            Text("献立が設定されていません")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Button {
+                Task {
+                    await mealPlanViewModel.fetchAISuggestion(userSettings: userSettings)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                    Text("AIに提案してもらう")
+                }
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(.white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(Color(hex: "1D9E75"))
+                .cornerRadius(10)
+            }
+            .disabled(mealPlanViewModel.isLoading)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
         .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .cornerRadius(14)
+    }
+
+    private var budgetSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("今月の食費")
+                .font(.headline)
+
+            VStack(spacing: 10) {
+                HStack {
+                    Text("支出")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("¥\(budgetViewModel.spentAmount.formatted())")
+                        .font(.system(size: 17, weight: .semibold))
+                }
+
+                GeometryReader { geo in
+                    ZStack(alignment: .leading) {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color(.systemFill))
+                            .frame(height: 8)
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(budgetViewModel.progressColor)
+                            .frame(width: geo.size.width * budgetViewModel.budgetRatio, height: 8)
+                    }
+                }
+                .frame(height: 8)
+
+                HStack {
+                    Text("残り ¥\(budgetViewModel.remaining.formatted())")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("予算 ¥\(budgetViewModel.monthlyBudget.formatted())")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .padding(16)
+            .background(Color(.secondarySystemGroupedBackground))
+            .cornerRadius(14)
+        }
+    }
+
+    private var greetingText: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5..<10: return "おはようございます"
+        case 10..<17: return "こんにちは"
+        default: return "こんばんは"
+        }
     }
 }
 
-private struct ExpiryAlertCard: View {
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("賞味期限アラート")
-                    .font(.headline)
-                Spacer()
-                NavigationLink(destination: ExpiryAlertView()) {
-                    Text("詳細")
-                        .font(.subheadline)
-                        .foregroundColor(Color(hex: "1D9E75"))
-                }
-            }
+private struct HomeMealRow: View {
 
-            Text("期限の近い食材を確認しましょう")
-                .font(.subheadline)
-                .foregroundColor(.secondary)
+    let slot: MealSlot
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(slot.mealTime + "食")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text(slot.name)
+                    .font(.system(size: 15, weight: .medium))
+                    .foregroundColor(slot.name == "未設定" ? .secondary : .primary)
+            }
+            Spacer()
+            if slot.name != "未設定" {
+                Image(systemName: slot.isCooking ? "flame.fill" : "takeoutbag.and.cup.and.straw.fill")
+                    .font(.caption)
+                    .foregroundColor(Color(hex: "1D9E75").opacity(0.7))
+            }
         }
-        .padding()
-        .background(Color(.secondarySystemGroupedBackground))
-        .cornerRadius(12)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
