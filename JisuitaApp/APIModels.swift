@@ -85,21 +85,10 @@ enum APIError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .network(let urlError):
-            switch urlError.code {
-            case .notConnectedToInternet:
-                return "インターネットに接続されていません"
-            case .timedOut:
-                return "通信がタイムアウトしました"
-            default:
-                return "ネットワークエラーが発生しました"
-            }
-        case .apiError(let message):
-            return message
-        case .decodeError:
-            return "レスポンスの解析に失敗しました"
-        case .unknown:
-            return "不明なエラーが発生しました"
+        case .network(let e): return "ネットワークエラー: \(e.localizedDescription)"
+        case .apiError(let msg): return "APIエラー: \(msg)"
+        case .decodeError: return "データの解析に失敗しました"
+        case .unknown: return "不明なエラーが発生しました"
         }
     }
 }
