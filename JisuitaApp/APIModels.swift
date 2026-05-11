@@ -26,6 +26,51 @@ struct ClaudeErrorBody: Codable {
     let message: String
 }
 
+enum APIError: LocalizedError {
+    case decodeError
+    case network(URLError)
+    case apiError(String)
+    case unknown
+    case retryExhausted(URLError)
+
+    var errorDescription: String? {
+        switch self {
+        case .decodeError:
+            return "データの読み込みに失敗しました。"
+        case .network(let urlError):
+            return networkErrorMessage(urlError)
+        case .apiError(let message):
+            return "APIエラー: \(message)"
+        case .unknown:
+            return "予期しないエラーが発生しました。"
+        case .retryExhausted(let urlError):
+            return "通信に失敗しました（\(networkErrorMessage(urlError))）。時間をおいて再試行してください。"
+        }
+    }
+
+    private func networkErrorMessage(_ urlError: URLError) -> String {
+        switch urlError.code {
+        case .timedOut:
+            return "通信がタイムアウトしました。"
+        case .notConnectedToInternet:
+            return "インターネットに接続されていません。"
+        case .networkConnectionLost:
+            return "通信が途切れました。"
+        default:
+            return "通信エラーが発生しました。"
+        }
+    }
+
+    var isRetryable: Bool {
+        switch self {
+        case .network(let urlError):
+            return [.timedOut, .networkConnectionLost, .cannotConnectToHost].contains(urlError.code)
+        default:
+            return false
+        }
+    }
+}
+
 struct Meal: Identifiable, Codable {
     var id = UUID()
     var day: String
@@ -35,9 +80,6 @@ struct Meal: Identifiable, Codable {
 }
 
 /// 献立スロットの Single Source of Truth
-/// - MealPlanView / HomeView など全画面がこのモデルを参照する
-/// - `isCooking`: 自炊するか（false の場合は外食・テイクアウト扱い）
-/// - `memo`: AI提案時の補足や手動メモ
 struct MealSlot: Identifiable, Codable {
     let id: UUID
     var day: String
@@ -74,32 +116,5 @@ struct MealSlot: Identifiable, Codable {
         isCooking = try c.decodeIfPresent(Bool.self, forKey: .isCooking) ?? true
         isFixed = try c.decodeIfPresent(Bool.self, forKey: .isFixed) ?? false
         memo = try c.decodeIfPresent(String.self, forKey: .memo) ?? ""
-    }
-}
-
-enum APIError: LocalizedError {
-    case network(URLError)
-    case apiError(String)
-    case decodeError
-    case unknown
-
-    var errorDescription: String? {
-        switch self {
-        case .network(let urlError):
-            switch urlError.code {
-            case .notConnectedToInternet:
-                return "インターネットに接続されていません"
-            case .timedOut:
-                return "通信がタイムアウトしました"
-            default:
-                return "ネットワークエラーが発生しました"
-            }
-        case .apiError(let message):
-            return message
-        case .decodeError:
-            return "レスポンスの解析に失敗しました"
-        case .unknown:
-            return "不明なエラーが発生しました"
-        }
     }
 }
