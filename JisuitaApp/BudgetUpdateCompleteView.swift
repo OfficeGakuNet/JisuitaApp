@@ -11,93 +11,117 @@ struct BudgetUpdateCompleteView: View {
     private var progressColor: Color { viewModel.progressColor }
 
     var body: some View {
-        VStack(spacing: 32) {
-            Spacer()
+        ZStack {
+            Color(.systemGroupedBackground)
+                .ignoresSafeArea()
 
-            ZStack {
-                Circle()
-                    .fill(Color(hex: "1D9E75").opacity(0.12))
-                    .frame(width: 100, height: 100)
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 64))
-                    .foregroundColor(Color(hex: "1D9E75"))
-            }
+            VStack(spacing: 32) {
+                Spacer()
 
-            VStack(spacing: 8) {
-                Text("反映完了！")
-                    .font(.title)
-                    .fontWeight(.bold)
-                Text("食費と食材トラッカーを更新しました")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-            }
-
-            VStack(spacing: 16) {
-                HStack {
-                    Text("今回の食費")
-                    Spacer()
-                    Text("+ ¥\(addedAmount.formatted())")
-                        .fontWeight(.semibold)
+                ZStack {
+                    Circle()
+                        .fill(Color(hex: "1D9E75").opacity(0.12))
+                        .frame(width: 100, height: 100)
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 64))
                         .foregroundColor(Color(hex: "1D9E75"))
                 }
 
-                Divider()
+                VStack(spacing: 8) {
+                    Text("反映完了！")
+                        .font(.title)
+                        .fontWeight(.bold)
+                    Text("食費と食材トラッカーを更新しました")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
 
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(spacing: 16) {
                     HStack {
-                        Text("今月の食費予算")
-                            .font(.subheadline)
+                        Text("今回の食費")
                         Spacer()
-                        Text("¥\(viewModel.monthlyBudget.formatted())")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
+                        Text("+ ¥\(addedAmount.formatted())")
+                            .fontWeight(.semibold)
+                            .foregroundColor(Color(hex: "1D9E75"))
                     }
 
-                    HStack {
-                        Text("累計支出")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("¥\(newSpent.formatted())")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                    }
+                    Divider()
 
-                    ProgressView(value: budgetRatio)
-                        .tint(progressColor)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("今月の食費予算")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("¥\(viewModel.monthlyBudget.formatted())")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
 
-                    HStack {
-                        Text("残り予算")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("¥\(remaining.formatted())")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(progressColor)
+                        HStack {
+                            Text("累計支出")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("¥\(newSpent.formatted())")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+
+                        HStack {
+                            Text("残り予算")
+                                .font(.subheadline)
+                            Spacer()
+                            Text("¥\(remaining.formatted())")
+                                .font(.subheadline)
+                                .foregroundColor(remaining == 0 ? .red : .primary)
+                        }
+
+                        if viewModel.monthlyBudget > 0 {
+                            VStack(alignment: .leading, spacing: 4) {
+                                GeometryReader { geo in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color(.systemGray5))
+                                            .frame(height: 8)
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(progressColor)
+                                            .frame(width: geo.size.width * budgetRatio, height: 8)
+                                    }
+                                }
+                                .frame(height: 8)
+
+                                Text("予算の\(Int(budgetRatio * 100))%を使用")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                        } else {
+                            Text("予算が設定されていません")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
-            }
-            .padding()
-            .background(Color(.secondarySystemGroupedBackground))
-            .cornerRadius(12)
-            .padding(.horizontal)
+                .padding()
+                .background(Color(.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                .padding(.horizontal)
 
-            Spacer()
+                Spacer()
 
-            Button {
-                dismiss()
-            } label: {
-                Text("ホームに戻る")
-                    .fontWeight(.semibold)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(Color(hex: "1D9E75"))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
+                Button {
+                    dismiss()
+                } label: {
+                    Text("閉じる")
+                        .fontWeight(.semibold)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(Color(hex: "1D9E75"))
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 32)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 32)
         }
-        .background(Color(.systemGroupedBackground))
         .navigationBarBackButtonHidden(true)
     }
 }
