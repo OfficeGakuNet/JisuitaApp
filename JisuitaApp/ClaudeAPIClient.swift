@@ -12,17 +12,16 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
     static let shared = ClaudeAPIClient()
 
     private let apiKey: String = Secrets.claudeAPIKey
-
-    private let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
-    private let model = "claude-sonnet-4-6"
-    private let maxTokens = 4096
+    private let endpoint = URL(string: APIConfig.endpoint)!
+    private let model = APIConfig.claudeModel
+    private let maxTokens = APIConfig.maxTokens
 
     func send(systemPrompt: String, userMessage: String) async throws -> String {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
-        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue(APIConfig.anthropicVersion, forHTTPHeaderField: "anthropic-version")
 
         let body: [String: Any] = [
             "model": model,
@@ -66,7 +65,7 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
         }
 
         guard httpResponse.statusCode == 200 else {
-            throw APIError.apiError("HTTPエラー: \(httpResponse.statusCode)")
+            throw APIError.apiError("HTTP \(httpResponse.statusCode)")
         }
 
         guard let text = decoded.content?.first(where: { $0.type == "text" })?.text else {
