@@ -6,4 +6,9 @@ enum AppDefaults {
     static let monthlyBudgetKey = "monthlyBudget"
     static let spentAmountKey = "spentAmount"
     static let spentAmountResetMonthKey = "spentAmountResetMonth"
+
+    enum BudgetThreshold {
+        static let danger: Double = 0.9
+        static let caution: Double = 0.7
+    }
 }
