@@ -21,8 +21,12 @@ final class BudgetViewModel: ObservableObject {
         max(monthlyBudget - spentAmount, 0)
     }
 
+    var budgetStatus: BudgetStatus {
+        BudgetStatus(ratio: budgetRatio)
+    }
+
     var progressColor: Color {
-        budgetRatio > 0.9 ? .red : budgetRatio > 0.7 ? .orange : Color(hex: "1D9E75")
+        budgetStatus.color
     }
 
     func addSpending(_ amount: Int) {
