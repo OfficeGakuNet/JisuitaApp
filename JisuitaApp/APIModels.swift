@@ -26,18 +26,41 @@ struct ClaudeErrorBody: Codable {
     let message: String
 }
 
+// JSONキー名はSwiftプロパティ名と同一（CodingKeys省略）
+// id / day / mealTime / name / memo
 struct Meal: Identifiable, Codable {
-    var id = UUID()
+    let id: UUID
     var day: String
     var mealTime: String
     var name: String
-    var memo: String = ""
+    var memo: String
+
+    init(
+        id: UUID = UUID(),
+        day: String,
+        mealTime: String,
+        name: String,
+        memo: String = ""
+    ) {
+        self.id = id
+        self.day = day
+        self.mealTime = mealTime
+        self.name = name
+        self.memo = memo
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(UUID.self, forKey: .id)
+        day = try c.decode(String.self, forKey: .day)
+        mealTime = try c.decode(String.self, forKey: .mealTime)
+        name = try c.decodeIfPresent(String.self, forKey: .name) ?? ""
+        memo = try c.decodeIfPresent(String.self, forKey: .memo) ?? ""
+    }
 }
 
-/// 献立スロットの Single Source of Truth
-/// - MealPlanView / HomeView など全画面がこのモデルを参照する
-/// - `isCooking`: 自炊するか（false の場合は外食・テイクアウト扱い）
-/// - `memo`: AI提案時の補足や手動メモ
+// JSONキー名はSwiftプロパティ名と同一（CodingKeys省略）
+// id / day / mealTime / name / isCooking / isFixed / memo
 struct MealSlot: Identifiable, Codable {
     let id: UUID
     var day: String
@@ -74,32 +97,5 @@ struct MealSlot: Identifiable, Codable {
         isCooking = try c.decodeIfPresent(Bool.self, forKey: .isCooking) ?? true
         isFixed = try c.decodeIfPresent(Bool.self, forKey: .isFixed) ?? false
         memo = try c.decodeIfPresent(String.self, forKey: .memo) ?? ""
-    }
-}
-
-enum APIError: LocalizedError {
-    case network(URLError)
-    case apiError(String)
-    case decodeError
-    case unknown
-
-    var errorDescription: String? {
-        switch self {
-        case .network(let urlError):
-            switch urlError.code {
-            case .notConnectedToInternet:
-                return "インターネットに接続されていません"
-            case .timedOut:
-                return "通信がタイムアウトしました"
-            default:
-                return "ネットワークエラーが発生しました"
-            }
-        case .apiError(let message):
-            return message
-        case .decodeError:
-            return "レスポンスの解析に失敗しました"
-        case .unknown:
-            return "不明なエラーが発生しました"
-        }
     }
 }
