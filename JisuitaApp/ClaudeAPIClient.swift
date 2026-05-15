@@ -54,19 +54,39 @@ class ClaudeAPIClient: ClaudeAPIClientProtocol {
             throw APIError.unknown
         }
 
+        APILogger.log("[HTTP] status=\(httpResponse.statusCode)")
+
+        switch httpResponse.statusCode {
+        case 200:
+            break
+        case 401:
+            APILogger.log("[HTTP] 401 Unauthorized - APIキーを確認してください")
+            throw APIError.apiError("認証に失敗しました。APIキーが無効です。")
+        case 403:
+            APILogger.log("[HTTP] 403 Forbidden")
+            throw APIError.apiError("アクセスが拒否されました。")
+        case 429:
+            APILogger.log("[HTTP] 429 Rate Limit Exceeded")
+            throw APIError.apiError("リクエストが多すぎます。しばらく時間をおいて再試行してください。")
+        case 500, 502, 503, 504:
+            APILogger.log("[HTTP] \(httpResponse.statusCode) Server Error")
+            throw APIError.apiError("サーバーエラーが発生しました。しばらく時間をおいて再試行してください。")
+        default:
+            APILogger.log("[HTTP] Unexpected status=\(httpResponse.statusCode)")
+            throw APIError.apiError("予期しないレスポンスが返されました。(\(httpResponse.statusCode))")
+        }
+
         let decoded: ClaudeResponse
         do {
             decoded = try JSONDecoder().decode(ClaudeResponse.self, from: data)
         } catch {
+            APILogger.log("[Decode] \(error.localizedDescription)")
             throw APIError.decodeError
         }
 
         if decoded.isError {
+            APILogger.log("[API] error=\(decoded.errorMessage)")
             throw APIError.apiError(decoded.errorMessage)
-        }
-
-        guard httpResponse.statusCode == 200 else {
-            throw APIError.apiError("HTTPエラー: \(httpResponse.statusCode)")
         }
 
         guard let text = decoded.content?.first(where: { $0.type == "text" })?.text else {
