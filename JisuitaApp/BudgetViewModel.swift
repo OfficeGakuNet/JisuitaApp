@@ -2,14 +2,30 @@ import SwiftUI
 import Combine
 
 final class BudgetViewModel: ObservableObject {
-    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget: Int = AppDefaults.monthlyBudget
-    @AppStorage(AppDefaults.spentAmountKey) var spentAmount: Int = AppDefaults.spentAmount
+    @AppStorage(AppDefaults.monthlyBudgetKey) var monthlyBudget: Int = AppDefaults.monthlyBudget {
+        didSet { objectWillChange.send() }
+    }
+    @AppStorage(AppDefaults.spentAmountKey) var spentAmount: Int = AppDefaults.spentAmount {
+        didSet { objectWillChange.send() }
+    }
     @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth: String = ""
 
     private let calendar = Calendar.current
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         resetIfNeeded()
+        observeUserDefaultsChanges()
+    }
+
+    private func observeUserDefaultsChanges() {
+        NotificationCenter.default
+            .publisher(for: UserDefaults.didChangeNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.objectWillChange.send()
+            }
+            .store(in: &cancellables)
     }
 
     var budgetRatio: Double {
