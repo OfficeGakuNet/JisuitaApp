@@ -7,9 +7,11 @@ final class BudgetViewModel: ObservableObject {
     @AppStorage(AppDefaults.spentAmountResetMonthKey) private var resetMonth: String = ""
 
     private let calendar = Calendar.current
+    private var cancellables = Set<AnyCancellable>()
 
     init() {
         resetIfNeeded()
+        observeForeground()
     }
 
     var budgetRatio: Double {
@@ -36,6 +38,15 @@ final class BudgetViewModel: ObservableObject {
             spentAmount = AppDefaults.spentAmount
             resetMonth = currentMonth
         }
+    }
+
+    private func observeForeground() {
+        NotificationCenter.default
+            .publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in
+                self?.resetIfNeeded()
+            }
+            .store(in: &cancellables)
     }
 
     private func monthKey(for date: Date) -> String {
