@@ -1,146 +1,88 @@
-import SwiftUI
+//
+//  MealPlanViewModel.swift
+//  JisuitaApp
+//
+//  Created by 株式会社オフィス岳 on 2026/04/10.
+//
+
+import Foundation
 import Combine
 
-@MainActor
 final class MealPlanViewModel: ObservableObject {
+
     static let shared = MealPlanViewModel()
 
-    @Published var slots: [MealSlot] = []
-    @Published var isLoading = false
-    @Published var errorMessage: String? = nil
+    private let persistenceKey = "mealSlots_v1"
+    private let calendar = Calendar.current
 
-    private let days = ["月", "火", "水", "木", "金", "土", "日"]
-    private let mealTimes = ["朝", "昼", "夜"]
-    private let slotsKey = "mealPlanSlots"
+    @Published var slots: [MealSlot] = [] {
+        didSet { save() }
+    }
+
+    let days = ["月", "火", "水", "木", "金", "土", "日"]
+    let mealTimes = ["朝", "昼", "夜"]
 
     private init() {
-        if let data = UserDefaults.standard.data(forKey: slotsKey),
-           let saved = try? JSONDecoder().decode([MealSlot].self, from: data) {
-            slots = saved
-        } else {
-            slots = defaultSlots()
+        load()
+        if slots.isEmpty {
+            slots = buildDefaultSlots()
         }
-        applyFixedMenus()
     }
 
-    func reloadFixedMenus() {
-        applyFixedMenus()
-    }
+    // MARK: - Public
 
-    private func applyFixedMenus() {
-        let fixedMenus: [FixedMenu]
-        if let data = UserDefaults.standard.data(forKey: "fixedMenus"),
-           let decoded = try? JSONDecoder().decode([FixedMenu].self, from: data), !decoded.isEmpty {
-            fixedMenus = decoded
-        } else {
-            fixedMenus = [FixedMenu(name: "ヨーグルト・バナナ", mealTime: "朝",
-                                    days: ["月", "火", "水", "木", "金"], isEnabled: true)]
-        }
-        for i in slots.indices {
-            let match = fixedMenus.first {
-                $0.isEnabled && $0.mealTime == slots[i].mealTime && $0.days.contains(slots[i].day)
-            }
-            if let fixed = match {
-                slots[i].name = fixed.name
-                slots[i].isFixed = true
-                slots[i].isCooking = true
-            } else if slots[i].isFixed {
-                slots[i].name = "未設定"
-                slots[i].isFixed = false
-            }
-        }
-        saveSlots()
-    }
-
-    func resetMealPlan() {
-        for i in slots.indices where !slots[i].isFixed {
-            slots[i].name = "未設定"
-            slots[i].isCooking = true
-        }
-        applyFixedMenus()
-    }
-
-    func slot(for day: String, mealTime: String) -> MealSlot? {
+    func slot(for day: String, mealTime: String) -> MealSlot {
         slots.first { $0.day == day && $0.mealTime == mealTime }
+            ?? MealSlot(day: day, mealTime: mealTime)
     }
 
-    func toggleCooking(for day: String, mealTime: String) {
-        guard let index = slots.firstIndex(where: { $0.day == day && $0.mealTime == mealTime }) else { return }
-        slots[index].isCooking.toggle()
-        saveSlots()
+    func update(_ updated: MealSlot) {
+        guard let idx = slots.firstIndex(where: { $0.id == updated.id }) else { return }
+        slots[idx] = updated
     }
 
-    func generateMealPlan(personalizedContext: String) async {
-        isLoading = true
-        errorMessage = nil
-        defer { isLoading = false }
+    func todaySlots() -> [MealSlot] {
+        let day = todayDayString()
+        return mealTimes.map { slot(for: day, mealTime: $0) }
+    }
 
-        let targetSlots = slots.filter { $0.isCooking && !$0.isFixed }
-        guard !targetSlots.isEmpty else { isLoading = false; return }
-        let slotList = targetSlots.map { "\($0.day)\($0.mealTime)" }.joined(separator: "、")
+    func todayDayString() -> String {
+        let weekday = calendar.component(.weekday, from: Date())
+        // weekday: 1=日, 2=月, ..., 7=土
+        let map = [1: "日", 2: "月", 3: "火", 4: "水", 5: "木", 6: "金", 7: "土"]
+        return map[weekday] ?? "月"
+    }
 
-        let systemPrompt = """
-        あなたは家庭料理の献立プランナーです。
-        以下のJSON形式のみで返答してください（他のテキスト不要）：
-        {"slots": [{"day": "月", "mealTime": "朝", "name": "料理名"}, ...]}
-        """
+    func weekSummary() -> [(day: String, slots: [MealSlot])] {
+        days.map { day in
+            (day: day, slots: mealTimes.map { slot(for: day, mealTime: $0) })
+        }
+    }
 
-        let userMessage = """
-        以下の条件で、指定されたスロットのみ献立を提案してください。
+    // MARK: - Persistence
 
-        \(personalizedContext)
+    private func save() {
+        guard let data = try? JSONEncoder().encode(slots) else { return }
+        UserDefaults.standard.set(data, forKey: persistenceKey)
+    }
 
-        提案対象スロット：\(slotList)
-        対象スロット数：\(targetSlots.count)件のみJSON形式で返してください。
-        """
+    private func load() {
+        guard
+            let data = UserDefaults.standard.data(forKey: persistenceKey),
+            let decoded = try? JSONDecoder().decode([MealSlot].self, from: data)
+        else { return }
+        slots = decoded
+    }
 
-        do {
-            let response = try await ClaudeAPIClient.shared.send(
-                systemPrompt: systemPrompt,
-                userMessage: userMessage
-            )
-            let newSlots = parseSlotsFromJSON(response)
-            if !newSlots.isEmpty {
-                for new in newSlots {
-                    if let index = slots.firstIndex(where: { $0.day == new.day && $0.mealTime == new.mealTime && !$0.isFixed }) {
-                        slots[index].name = new.name
-                    }
-                }
-                saveSlots()
-            } else {
-                errorMessage = "献立の解析に失敗しました。再試行してください。"
+    // MARK: - Default
+
+    private func buildDefaultSlots() -> [MealSlot] {
+        var result: [MealSlot] = []
+        for day in days {
+            for time in mealTimes {
+                result.append(MealSlot(day: day, mealTime: time))
             }
-        } catch {
-            errorMessage = error.localizedDescription
         }
-    }
-
-    private func parseSlotsFromJSON(_ text: String) -> [MealSlot] {
-        let stripped = text
-            .replacingOccurrences(of: "```json", with: "")
-            .replacingOccurrences(of: "```", with: "")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let startIdx = stripped.firstIndex(of: "{"),
-              let endIdx = stripped.lastIndex(of: "}") else { return [] }
-        let jsonString = String(stripped[startIdx...endIdx])
-        guard let data = jsonString.data(using: .utf8),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let slotsArray = json["slots"] as? [[String: Any]] else { return [] }
-        return slotsArray.compactMap { dict in
-            guard let day = dict["day"] as? String,
-                  let mealTime = dict["mealTime"] as? String,
-                  let name = dict["name"] as? String else { return nil }
-            return MealSlot(day: day, mealTime: mealTime, name: name, isCooking: true)
-        }
-    }
-
-    private func defaultSlots() -> [MealSlot] {
-        days.flatMap { day in mealTimes.map { MealSlot(day: day, mealTime: $0) } }
-    }
-
-    private func saveSlots() {
-        if let data = try? JSONEncoder().encode(slots) {
-            UserDefaults.standard.set(data, forKey: slotsKey)
-        }
+        return result
     }
 }
