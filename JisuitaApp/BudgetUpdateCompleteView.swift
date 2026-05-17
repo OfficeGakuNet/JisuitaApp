@@ -27,7 +27,7 @@ struct BudgetUpdateCompleteView: View {
                 Text("反映完了！")
                     .font(.title)
                     .fontWeight(.bold)
-                Text("食費と食材トラッカーを更新しました")
+                Text("食費を更新しました")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -66,19 +66,16 @@ struct BudgetUpdateCompleteView: View {
                         .tint(progressColor)
 
                     HStack {
-                        Text("残り予算")
-                            .font(.subheadline)
                         Spacer()
-                        Text("¥\(remaining.formatted())")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(progressColor)
+                        Text("残り ¥\(remaining.formatted())")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
                     }
                 }
             }
             .padding()
             .background(Color(.secondarySystemGroupedBackground))
-            .cornerRadius(12)
+            .cornerRadius(16)
             .padding(.horizontal)
 
             Spacer()
@@ -86,16 +83,17 @@ struct BudgetUpdateCompleteView: View {
             Button {
                 dismiss()
             } label: {
-                Text("ホームに戻る")
+                Text("完了")
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(Color(hex: "1D9E75"))
                     .foregroundColor(.white)
-                    .cornerRadius(12)
+                    .cornerRadius(14)
+                    .padding(.horizontal)
             }
-            .padding(.horizontal)
-            .padding(.bottom, 32)
+
+            Spacer().frame(height: 8)
         }
         .background(Color(.systemGroupedBackground))
         .navigationBarBackButtonHidden(true)
